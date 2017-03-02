@@ -8,13 +8,9 @@ tensorflow: https://github.com/tensorflow/models/tree/master/textsum
 
 ### Extractive Summary
 
+### Paper: 
 
-
-
-## Paper: 
-
-
-
+[A Thorough Examination of the CNN/Daily Mail Reading Comprehension Task](https://cs.stanford.edu/people/danqi/papers/acl2016.pdf)
 
 ## Data Set:
 
