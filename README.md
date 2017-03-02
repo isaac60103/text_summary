@@ -19,6 +19,7 @@ tensorflow: https://github.com/tensorflow/models/tree/master/textsum
 ## Data Set:
 
 [DeepMind Q&A Dataset - CNN & Daily Mail](http://cs.nyu.edu/~kcho/DMQA/)
+[Document Understanding Conference - DUC](http://www-nlpir.nist.gov/projects/duc/index.html)
 
 ## Others:
 
