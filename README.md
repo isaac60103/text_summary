@@ -21,7 +21,7 @@ Paper:
 
 Data Set:
 
-
+[DeepMind Q&A Dataset - CNN & Daily Mail](http://cs.nyu.edu/~kcho/DMQA/)
 
 Others:
 Ivisible
