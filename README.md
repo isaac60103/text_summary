@@ -12,6 +12,8 @@ tensorflow: https://github.com/tensorflow/models/tree/master/textsum
 
 [A Thorough Examination of the CNN/Daily Mail Reading Comprehension Task](https://cs.stanford.edu/people/danqi/papers/acl2016.pdf)
 
+[Leveraging Learning To Rank in an Optimization Framework for timeline summerization](http://www.l3s.de/~gtran/publications/taia2013.pdf)
+
 ## Data Set:
 
 [DeepMind Q&A Dataset - CNN & Daily Mail](http://cs.nyu.edu/~kcho/DMQA/)
