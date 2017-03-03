@@ -1,4 +1,4 @@
-News Resource:
+## News Resource
 
 [Reddit AI forum](https://www.reddit.com/r/artificial/) 
 
