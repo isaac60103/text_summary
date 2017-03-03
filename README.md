@@ -1,3 +1,12 @@
+News Resource:
+
+[Reddit AI forum](https://www.reddit.com/r/artificial/) 
+
+[AI100](http://forum.ai100.com.cn/)
+
+[雷鋒網](http://www.leiphone.com/)
+
+[機器之心](http://www.jiqizhixin.com/)
 
 ## Open Source:
 
