@@ -38,3 +38,7 @@ tensorflow: https://github.com/tensorflow/models/tree/master/textsum
 
 [google online automatic text summarizer]
 [http://autosummarizer.com/]
+
+
+[smmry]
+http://smmry.com/
