@@ -1,0 +1,2 @@
+<p><s>i am five</s>aaa<s>i am six</s></p>
+<p><s>i am seven</s>aaa<s>i am eight</s></p>
