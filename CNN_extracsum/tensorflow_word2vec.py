@@ -27,6 +27,7 @@ import numpy as np
 from six.moves import urllib
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
+import pickle
 
 # Step 1: Download the data.
 url = 'http://mattmahoney.net/dc/'
@@ -184,7 +185,7 @@ with graph.as_default():
   init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-num_steps = 10001
+num_steps = 1001
 
 with tf.Session(graph=graph) as session:
   # We must initialize all variables before we use them.
@@ -210,7 +211,7 @@ with tf.Session(graph=graph) as session:
       average_loss = 0
 
     # Note that this is expensive (~20% slowdown if computed every 500 steps)
-    if step % 10000 == 0:
+    if step % 100000 == 0:
       sim = similarity.eval()
       for i in xrange(valid_size):
         valid_word = reverse_dictionary[valid_examples[i]]
@@ -253,3 +254,20 @@ try:
 
 except ImportError:
   print("Please install sklearn, matplotlib, and scipy to visualize embeddings.")
+  
+def savevocab(final_embeddings, reverse_dictionary):
+    
+    vocab = {}
+    
+    for i in range(len(reverse_dictionary)):
+        #vocab.append([reverse_dictionary[i],final_embeddings[i]])
+        
+        vocab[reverse_dictionary[i]] = final_embeddings[i]
+    with open('vocab.pickle', 'wb') as handle:
+        pickle.dump(vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    return vocab
+vocab = savevocab(final_embeddings, reverse_dictionary) 
+  
+  
+  
