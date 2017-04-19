@@ -26,7 +26,6 @@ n_steps = 28 # timesteps
 n_hidden = 128 # hidden layer num of features
 n_classes = 10 # MNIST total classes (0-9 digits)
 n_docout = 10 
-doc_ecode_length = 7168 
 n_doc_state = 10
 
 # tf Graph input
@@ -39,13 +38,12 @@ doc_var_list = [
                 ['d_attw',[2*ctx_lstm_size, attention_mlp_hidden]],
                 ['q_attw',[2*question_lstm_size, attention_mlp_hidden]],
                 ['wms',[attention_mlp_hidden,1]],
-                ['w_rg',[2*ctx_lstm_size, ctx_lstm_size]],
-                ['w_ug',[2*question_lstm_size, ctx_lstm_size]]
+                ['w_rg',[2*ctx_lstm_size, n_entities]],
+                ['w_ug',[2*question_lstm_size, n_entities]]
                 ]
            
-            
-
 doc_var = mut.create_var_tnorm('document',doc_var_list)
+
 
 x = tf.unstack(inputs, n_steps, 1)
 
@@ -59,9 +57,7 @@ with tf.variable_scope("query"):
     doc_net, fw, bw = rnn.static_bidirectional_rnn(qlstm_fw_cell, qlstm_bw_cell, x ,dtype=tf.float32)
     y_q = tf.concat([fw[-1], bw[-1]],1)
     
-    
-    
-    
+   
 with tf.variable_scope("document"):
     with tf.variable_scope("fw"):
         lstm_fw_cell = rnn.BasicLSTMCell(question_lstm_size, forget_bias=1.0)

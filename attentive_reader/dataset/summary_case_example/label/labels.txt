@@ -1,0 +1,15 @@
+Product Model (TS Confirm):IKS-G6524A-20GSFP-4GTXSFP-HV-HV
+TS Case Category: 2-Function
+OS: Windows 7 x86
+Subject:IKS-G6524A Series: SFP port
+Description:
+Hi Tech support,
+I'm Chang Shin from PDF Solutions.
+We have an Ethernet Switch (IKS-G6524A) with 4 SFP ports.
+I need to use the SFP port with Xilinx 1000Base(X) and I have a question.
+When I connect a loop back SFP module (I think electrical loop back), the LED on the port lights up to show the network activity.
+However, when I plugged the SFP modules into two ports and connect them with fiber optics, the LED doesn't light up at all. On the other hand, when I plug the regular network cable into two regular network port, the LED lights up.
+So I'm not sure what is the current problem.
+I'd appreciate your suggestions ASAP.
+Thanks,
+Chang
