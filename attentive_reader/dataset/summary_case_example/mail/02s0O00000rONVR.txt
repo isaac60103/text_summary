@@ -1,0 +1,52 @@
+Dear Chang Shin,
+Thank you for using MOXA products. It's our pleasure to serve you.
+To the best of our understanding, your question is as follows:
+We have an Ethernet Switch (IKS-G6524A) with 4 SFP ports.
+I need to use the SFP port with Xilinx 1000Base(X) and I have a question.
+When I connect a loop back SFP module (I think electrical loop back), the LED on the port lights up to show the network activity.
+However, when I plugged the SFP modules into two ports and connect them with fiber optics, the LED doesn't light up at all. On the other hand, when I plug the regular network cable into two regular network port, the LED lights up.
+So I'm not sure what is the current problem.
+I'd appreciate your suggestions ASAP. 
+ 
+Just FYI, connecting two ports with each other causes a loop, so that is not advisable as a means of testing. Regarding your findings, you will not get link on the fiber connections the way you are testing. You need to establish a link between the switch with one SFP and another device with the same specs fiber port (SFP). The real test is trying to ping or communicate between two devices across the fiber link.
+ 
+Should you have additional questions, please feel free to contact me.
+
+Best regards,
+ 
+Guillermo Valdez
+Technical Support Engineer
+ 
+Moxa Americas, Inc.
+601 Valencia Ave.
+Brea, CA 92821
+Tel. (714) 528-6777 ext. 253
+Fax. (714) 528-6778
+<a href="http://www.Moxa.com" target="_blank">www.Moxa.com</a> 
+Total Solution for Industrial Device Networking
+ref:_00D2063La._5000O1AYIXi:ref
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
