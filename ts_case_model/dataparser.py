@@ -3,54 +3,12 @@ import re
 import pickle
 import os
 import shutil
+import collections
+
+#------------Context File Paser---------
 
 
-def mapword2dict(words, dictionary):
-    
-    word2dict = words
-
-    for idx in range(len(words)):
-        
-        try:
-            word2dict[idx] = dictionary[words[idx]]
-        except:
-            word2dict[idx] = 0
-    
-    word2dict = list(filter(lambda a: a != 0, word2dict))
-    
-    return word2dict
-    
-
-def wordembededbycontents(words, embeddingsize ,embeddingfile):
-    
-    with open(embeddingfile, 'rb') as handle:
-        wordvec = pickle.load(handle)
-    
-    embedding = np.zeros([len(words),embeddingsize])
-    
-    for idx in range(len(words)):
-        try:
-            embedding[idx] = wordvec[words[idx]]
-        except:
-            embedding[idx] = wordvec['UNK']
-            
-    return embedding
-
-
-
-#------------Context Label File Paser---------
-
-
-def slipt_text_by_space(text, re_reg = '[^-_a-z0-9A-Z]'):
-    
-    r = re.compile(re_reg)
-    text= r.sub(" ", text)
-    splited = re.split('\s', text)
-    cleantext = list(filter(None, splited))
-    
-    return cleantext
-
-def slipt_doc_by_space(filename, re_reg = '[^-_a-z0-9A-Z]'):
+def slipt_doc_by_space(filename, re_reg = '[^-_a-z0-9A-Z\']'):
     
     text = open(filename, "r").read()
     r = re.compile(re_reg)
@@ -63,18 +21,7 @@ def slipt_doc_by_space(filename, re_reg = '[^-_a-z0-9A-Z]'):
     
     return cleantext
 
-def create_vocdicts_files(filelist, re_reg = '[^-_a-z0-9A-Z]'):
     
-    vocab = []
-    idx = 0
-    total = len(filelist)
-    for f in filelist:
-        idx = idx + 1
-        print("Process Files:{}/{}".format(idx, total))
-        vocab = vocab + slipt_doc_by_space(f,re_reg)
-    
-    return vocab
-   
 #---------------------Label File Paser-----------------
 #----------------Lables will be parsed as dict---------
 
@@ -124,35 +71,10 @@ def strip_label_content(splited_text, split=True):
 
     return tmp
 
-def create_vocdicts_label(filelist):
-
-    label_dict = {}
-    label_dict['model'] =  []
-    label_dict['category'] =  []
-    label_dict['OS'] =  []
-    label_dict['subject'] =  []
-    label_dict['description'] =  []
-
-    idx = 0
-    for f in filelist:
-        idx = idx + 1
-        #print("Process Files:{}/{}".format(idx, total))
-        label = slipt_label(f)
-        label_dict['model'] = label_dict['model'] + label['model']
-        label_dict['category'] = label_dict['category'] + label['category']
-        label_dict['OS'] = label_dict['OS'] + label['OS']
-        label_dict['subject'] = label_dict['subject'] + label['subject']
-        label_dict['description'] = label_dict['description'] + label['description']
-
-
-    return label_dict
-
-
-
-
 
 # Create a dictionary contain all mails and label in each case
 #   dict['case name'] = {mail_context_path, label_file_path}
+
 def create_data_label_path(dataset_path_list):
 
     data_dict = {}
@@ -169,7 +91,7 @@ def create_data_label_path(dataset_path_list):
             
             if len(filelist) > 1:
                 filelist.remove('labels.txt')
-                filepath = [os.path.join(folderpath, x) for x in filelist]
+                filepath = [{x:os.path.join(folderpath, x)} for x in filelist]
                 
                 data_dict[folder]['context'] = filepath 
             else:
@@ -210,23 +132,71 @@ def create_data_label_path(dataset_path_list):
                 
     return data_dict           
                     
+def process_data_to_pickle(process_root, path_dict):
 
+    for d in  path_dict:  
+        
+        casefolder = os.path.join(process_root, d)
+        
+        if not os.path.isdir(casefolder):
+            os.mkdir(casefolder)
+        
+        file_idx = 0 
+        
+        for clist in  path_dict[d]['context']:
+            
+            for c in clist:
+                
+                         
+                savepath = os.path.join(casefolder, str(file_idx)+'.pickle')
+                
+                if not os.path.isfile(savepath):
+                
+                    stripe = slipt_doc_by_space(clist[c])
+                    
+                    with open(savepath, 'wb') as f:
+                         pickle.dump(stripe, f, protocol=pickle.HIGHEST_PROTOCOL)
+           
+            file_idx = file_idx + 1
+         
+        lsavepath = os.path.join(casefolder, 'label.pickle')
+        
+        if not os.path.isfile(lsavepath):
+            with open(lsavepath, 'wb') as lf:
+                pickle.dump(slipt_label(path_dict[d]['label']), lf, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def build_dataset(words, n_words):
+  """Process raw inputs into a dataset."""
+  count = [['UNK', -1]]
+  count.extend(collections.Counter(words).most_common(n_words - 1))
+  dictionary = dict()
+  for word, _ in count:
+    dictionary[word] = len(dictionary)
+  data = list()
+  unk_count = 0
+  for word in words:
+    if word in dictionary:
+      index = dictionary[word]
+    else:
+      index = 0  # dictionary['UNK']
+      unk_count += 1
+    data.append(index)
+  count[0][1] = unk_count
+  reversed_dictionary = dict(zip(dictionary.values(), dictionary.keys()))
+  
+  data = list(filter(lambda a: a != 0, data))
+  return data, count, dictionary, reversed_dictionary       
+                           
 dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset'
 dataset_path_list = [os.path.join(dataset_root, 'tier1'), os.path.join(dataset_root, 'tier2')]    
 path_dict = create_data_label_path(dataset_path_list)           
+process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed'
 
-#    for x in data_dict:
-#        
-#        if data_dict[x]['context']=={}:
-#            
-#            text = open(data_dict[x]['label'], "r").read()
-#            if len(text) == 0:
-#                p = os.path.join(d, x)
-#                shutil.rmtree(p)
-#            else:
-#                sl = slipt_label(data_dict[x]['label'])
-#                if sl['description']
-                
+rpath = os.path.join('/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed/5002000000GPRxB', '0.pickle')
+with open(rpath, 'rb') as f:
+        label_dict_res = pickle.load(f)
+
 
 
 

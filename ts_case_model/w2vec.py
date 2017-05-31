@@ -1,34 +1,42 @@
 import numpy as np
+import math
 import tensorflow as tf
 import os
 import pickle
+from random import shuffle
 
-import data_utility.dataparser as parser
-import data_utility.word2vec_utility as w2v
-
+#import data_utility.dataparser as parser
+import word2vec_utility as w2v
+import statics
 
 def create_vocab_dict(path, vocabulary_size, valid_size, getall = False):
 
   files = os.listdir(path)
-  filelist = []
-  labelfile_list = []
-
+ 
+  
+  all_words = []
+  
   for f in files:
       subfold = os.path.join(path,f)
       subfiles = os.listdir(subfold)
       
       for sf in subfiles:
-          if sf != 'labels.txt': filelist = filelist + [os.path.join(subfold,sf)]
-          else: labelfile_list = labelfile_list + [os.path.join(subfold,sf)]
+          if sf != 'label.pickle':
+              
+              file = os.path.join(subfold,sf)
+              print(file)
+              all_words = all_words + statics.loadfrompickle(file)
+          #else: labelfile_list = labelfile_list + [os.path.join(subfold,sf)]
+          
+  reverse_dictionary ,data_label = w2v.build_data_label_pair(all_words, vocabulary_size) 
 
-  vocab = parser.create_vocdicts_files(filelist, '[^a-zA-Z]')
+  dl_pairs = []
+  for data in  data_label:
+      for label in data_label[data]:
+          dl_pairs.append([data, label])
  
-  if getall == True:
-    reverse_dictionary ,data_label = w2v.build_data_label_pair(vocab, len(vocab)+1,valid_size)
-  else:
-    reverse_dictionary ,data_label = w2v.build_data_label_pair(vocab, vocabulary_size+1,valid_size)
 
-  return reverse_dictionary, data_label
+  return reverse_dictionary, dl_pairs
 
 
 vocabulary_size = 10000
@@ -44,30 +52,9 @@ num_sampled = 64    # Number of negative examples to sample.
 num_steps = 1000000
 vecfilename = 'w2v.pickle'
 
-datapath = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/summary_case_example/result"
-w2vfile = 'w2v.pickle'
-questions = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/summary_case_example/question"
+datapath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed'
+w2vfile = '/home/ubuntu/workspace/text_summary_data/w2v.pickle'
 
-d_rdict, d_label = create_vocab_dict(datapath,vocabulary_size, valid_size)
-q_rdict, q_label = create_vocab_dict(questions, vocabulary_size, valid_size, True)
-
-dic_idx = len(d_rdict) - 1
-idx = 0
-for i in range(1,len(q_rdict)):
-    idx = idx + 1
-    key = dic_idx + idx
-    print(key)
-    d_rdict[key] = q_rdict[i]
-    
-    for l in range(len(q_label[i])):
-        q_label[i][l] = q_label[i][l] + dic_idx
-        
-    
-    d_label[key] = q_label[i]
-    
-    
-
-vocabulary_size = len(d_rdict)
 
 graph = tf.Graph()
 with graph.as_default():
@@ -106,28 +93,62 @@ with graph.as_default():
   valid_embeddings = tf.nn.embedding_lookup(normalized_embeddings, valid_dataset)
   similarity = tf.matmul(valid_embeddings, normalized_embeddings, transpose_b=True)#
 
+continue_training = 0
+init_epoch = 0 
+nepoch = 5
+checkpoint_dir = '/home/ubuntu/workspace/text_summary_data/model'
+model_file = "/home/ubuntu/workspace/text_summary_data/model/w2v.ckpt"
+
+d_rdict, d_label = create_vocab_dict(datapath,vocabulary_size, valid_size)
+
+statics.savetopickle("/home/ubuntu/workspace/text_summary_data/dictionary/reverse_dict.pickle", d_rdict)
+statics.savetopickle("/home/ubuntu/workspace/text_summary_data/data_label_pair/w2v_dlpair.pickle", d_label)
+
 with tf.Session(graph=graph) as session:
   
-  session.run(tf.global_variables_initializer())
+  saver = tf.train.Saver()
+  
+  if continue_training !=0:
+
+        resaver = tf.train.Saver()
+        resaver.restore(session, tf.train.latest_checkpoint(checkpoint_dir))
+        continue_training = 0
+        
+  else:
+        session.run(tf.global_variables_initializer())  
+
   print('Initialized')
 
   average_loss = 0
-  for step in range(num_steps):#
+  
+  for epoch in range(init_epoch, nepoch):
+         
+     batchlist=[]
+     
+     for i in range(len(d_label)//batch_size):
+         
+         index = i*batch_size
+         summary_idx = len(d_label)//batch_size*epoch + i
+         
+         print("Epoch: {}, Loop: {}".format(epoch, summary_idx))
+             
+         batchlist, batch_data, batch_label = w2v.randombatch(d_label, batch_size, index, batchlist)
+         feed_dict = {train_inputs: batch_data, train_labels: batch_label}
 
-    batch_data = w2v.randombatch(d_label, batch_size)
-    feed_dict = {train_inputs: batch_data[0], train_labels: batch_data[1]}
+         session.run([optimizer, loss], feed_dict=feed_dict)
+         
+         
+         if summary_idx % 10 == 0:
+             
+             saver.save(session, model_file, global_step=summary_idx)
+             feed_dict = {train_inputs: batch_data, train_labels: batch_label}
+             loss_val = session.run(loss, feed_dict=feed_dict)
+          
+             print('Average loss at step ', loss_val)
+          
 
-    _, loss_val = session.run([optimizer, loss], feed_dict=feed_dict)
-    average_loss += loss_val#
+  final_embeddings = normalized_embeddings.eval()
 
-    if step % 2000 == 0:
-      if step > 0:
-        average_loss /= 2000
-      # The average loss is an estimate of the loss over the last 2000 batches.
-      print('Average loss at step ', step, ': ', average_loss)
-      average_loss = 0#
-
-  final_embeddings = normalized_embeddings.eval()#
 
 try:
   # pylint: disable=g-import-not-at-top
@@ -137,11 +158,10 @@ try:
   tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
   plot_only = 500
   low_dim_embs = tsne.fit_transform(final_embeddings[:plot_only, :])
-  labels = [reverse_dictionary[i] for i in xrange(plot_only)]
+  labels = [d_rdict[i] for i in range(plot_only)]
   w2v.plot_with_labels(low_dim_embs, labels)
 except ImportError:
   print('Please install sklearn, matplotlib, and scipy to show embeddings.')
-    
 #with open(vecfilename, 'wb') as handle:
 #    pickle.dump(w2v_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

@@ -1,15 +1,15 @@
 import tensorflow as tf
 from tensorflow.contrib import rnn
-import time
 import os
 import pickle
+import numpy as np
 
 import model_utility as mut
 import data_utility.batch_generator as bg
 import data_utility.attentivereader_utility as au
 
 checkpoint_dir = '/home/ubuntu/workspace/model/attr_vanilla_model_SGD'
-checkpoint_filename = os.path.join(checkpoint_dir, 'attr_vanilla_model.ckpt')
+checkpoint_filename = os.path.join(checkpoint_dir, 'attr_vanilla_cat.ckpt')
 logfile = '/home/ubuntu/workspace/log/attr_vanilla_model_SGD'
 
 data_config = {}
@@ -41,12 +41,14 @@ model_config['query_time_step'] = 10
 model_config['ctx_lstm_size'] = 256
 model_config['question_lstm_size'] = 256
 model_config['attention_mlp_hidden'] = 100
-model_config['batch_size'] = 32
+model_config['batch_size'] = len(os.listdir(test_config['data']))//3 
 model_config['word2vec'] = 'w2v.pickle'
 
-continue_training = 0
+
+
+continue_training = 1
 epoch_n = 0
-Nepoch = 100
+Nepoch = 1
 save_epoch = 300
 test_epoch = 500
 
@@ -56,10 +58,8 @@ au.preparetraning(data_config, test_config,model_config)
 
 with open(data_config['label_dict'], 'rb') as handle:
        	label_dict = pickle.load(handle)
-        print(label_dict)
 
 model_config['n_entities'] = len(label_dict) + 1
-print(model_config['n_entities'])
 
 with tf.device('/gpu:1'):
 
@@ -127,7 +127,6 @@ with tf.device('/gpu:1'):
                 weight_stack.append(s_t)
            
             S_T = tf.nn.softmax(tf.stack(weight_stack, axis=1), dim=1)
-            #S_T = tf.nn.softmax(ost[0])
             content = tf.transpose(tf.stack(docout, axis=0),[2,0,1])
             
          
@@ -150,6 +149,9 @@ merged_summary_test = tf.summary.merge_all('test')#
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
 
+test_num = 0
+pos = 0
+
 with tf.Session(config = config) as sess:
     
     summary_writer = tf.summary.FileWriter(logfile, sess.graph) 
@@ -163,38 +165,32 @@ with tf.Session(config = config) as sess:
     else:
         sess.run(tf.global_variables_initializer())   
 
-    #[print(n.name) for n in tf.get_default_graph().as_graph_def().node]
-    
-              
+ 
     for epoch in range(epoch_n, Nepoch):
         
-        print("Start Epoch:{}".format(epoch))
-        shufflelist = []
         
-        for i in range(0,len(os.listdir(data_config['data']))//model_config['batch_size']):
+        shufflelist = []
+
+
+        for i in range(0, len(os.listdir(test_config['data']))//model_config['batch_size'] ):
             
-            summary_idx = len(os.listdir(data_config['data']))//model_config['batch_size']*epoch + i
-            print("Epoch:{}, Iteration:{}".format(epoch, summary_idx))
-            index = i*model_config['batch_size']
+            print("Start Iteration:{}".format(i))
+            index = model_config['batch_size']*i
+        
+            data, label, question, shufflelist = bg.randombatch_epoch(index, data_config, shufflelist, model_config['batch_size'] , data_config['label_type'], False)
+            feeddict={inputs: data, query:question, labels:label, keep_prob:1.0}
+            output = sess.run(tf.nn.softmax(logit), feeddict)
             
-            data, label, question, shufflelist = bg.randombatch_epoch(index, data_config, shufflelist, model_config['batch_size'], data_config['label_type'], True)
-            feeddict={inputs: data, query:question, labels:label, learning_rate:5e-5, keep_prob:0.2}
-            sess.run(solver, feed_dict=feeddict)  
+            for i in range(len(output)):
             
-            if summary_idx%save_epoch == 0:
-            
-                cost,summary = sess.run([loss, merged_summary_train], feed_dict=feeddict)  
-                saver.save(sess, checkpoint_filename, global_step=summary_idx)
-                summary_writer.add_summary(summary, summary_idx)
-                print("Loss:{}".format(cost))
-                
-            if summary_idx%test_epoch == 0:
-                tshufflelist = []
-                tdata, tlabel, tquestion, _ = bg.randombatch_epoch(0, test_config, tshufflelist, model_config['batch_size'], data_config['label_type'],True)
-                feeddict={inputs: tdata, query:tquestion, labels:tlabel, keep_prob:1.0}
-                tcost,tsummary = sess.run([tloss, merged_summary_test], feed_dict=feeddict)  
-                summary_writer.add_summary(tsummary, summary_idx)
-                print("Test Loss:{}".format(tcost))
+                test_num = test_num + 1
+                if np.argmax(label[i]) == np.argmax(output[i]):
+                    pos = pos + 1
+                else:
+                    pos = pos
+
+
+#    print("Accuracy:{}".format(pos/test_num))
         
     
     summary_writer.close()
