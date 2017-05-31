@@ -4,7 +4,7 @@ import pickle
 import data_helpers as dh
 from tensorflow.contrib import learn
 
-test = ['i am good', 'you are good', 'you are not', 'i am too']
+#test = ['i am good', 'you are good', 'you are not', 'i am too']
 vocab_file = "vocab.pickle"
 
 def sentence2vec(sentences, vocabfile):
@@ -35,20 +35,17 @@ def sentence2vec(sentences, vocabfile):
 
 
 
-#posfile = "../../dataset/movie_review/rt-polarity.pos"
-#negfile = "../../dataset/movie_review/rt-polarity.neg"
+posfile = "../../dataset/movie_review/rt-polarity.pos"
+negfile = "../../dataset/movie_review/rt-polarity.neg"
 vocab_file = "vocab.pickle"
 
 
-#[data, label] = dh.load_data_and_labels(posfile, negfile)
+[data, label] = dh.load_data_and_labels(posfile, negfile)
 
-vec = sentence2vec(test,vocab_file)
-label = np.array([[1,0],[0,1],[0,1],[1,0]])
-
+vec = sentence2vec(data,vocab_file)
 
 num_classes = 2
 
-#max_document_length = max([len(x.split(" ")) for x in data]) #Find longest Sentence
 #vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
 #x = np.array(list(vocab_processor.fit_transform(data)))
 # Randomly shuffle data
@@ -60,13 +57,13 @@ y_shuffled = label[shuffle_indices]
 
 # Split train/test set
 # TODO: This is very crude, should use cross-validation
-dev_sample_index = -1 * int(0.4 * float(len(label)))
+dev_sample_index = -1 * int(0.9 * float(len(label)))
 x_train, x_dev = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
 y_train, y_dev = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
 #print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
 print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
 
-input_x = tf.placeholder(tf.float32, [None,3,128,1], name="input_x")
+input_x = tf.placeholder(tf.float32, [None,56,128,1], name="input_x")
 input_y = tf.placeholder(tf.float32, [None, y_train.shape[1]], name="input_y")
 
 
@@ -74,7 +71,7 @@ vocab_size = len(vec[0]) #number of Vocab in Samples
 embedding_size = 128
 
 #
-with tf.device('/cpu:0'), tf.name_scope("embedding"):
+with tf.name_scope("embedding"):
             W = tf.Variable(
                 tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),name="W")
 #            embedded_chars = tf.nn.embedding_lookup(W, input_x)
@@ -126,13 +123,14 @@ with tf.name_scope("accuracy"):
             accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
 
             
-with tf.Session() as sess:
+with tf.Session(config=tf.ConfigProto(
+allow_soft_placement=True, log_device_placement=True)) as sess:
     init = tf.initialize_all_variables()
     sess.run(init)
     embedded = sess.run(embedded_chars_expanded)
     
     em = sess.run(predictions, feed_dict = {input_x:embedded})
-    fscore = sess.run(accuracy, feed_dict={input_x:embedded,input_y:y_train})
+#    fscore = sess.run(accuracy, feed_dict={input_x:embedded,input_y:y_train})
     
     
  

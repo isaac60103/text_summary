@@ -1,0 +1,1 @@
+Customer can't find the ioLogik E1210 on public IP remote site unit using auto-search function of ioSearch 
