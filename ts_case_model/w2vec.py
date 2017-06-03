@@ -101,14 +101,15 @@ init_epoch = 2
 nepoch = 5
 checkpoint_dir = '/home/ubuntu/workspace/text_summary_data/model'
 model_file = "/home/ubuntu/workspace/text_summary_data/model/w2v.ckpt"
+d_rdict = statics.loadfrompickle("/home/ubuntu/workspace/text_summary_data/dictionary/reverse_dict.pickle")
+d_label = statics.loadfrompickle("/home/ubuntu/workspace/text_summary_data/data_label_pair/w2v_dlpair.pickle")
 
 #d_rdict, d_label = create_vocab_dict(datapath,vocabulary_size, valid_size)
 
 #statics.savetopickle("/home/ubuntu/workspace/text_summary_data/dictionary/reverse_dict.pickle", d_rdict)
 #statics.savetopickle("/home/ubuntu/workspace/text_summary_data/data_label_pair/w2v_dlpair.pickle", d_label)
 
-d_rdict = statics.loadfrompickle("/home/ubuntu/workspace/text_summary_data/dictionary/reverse_dict.pickle")
-d_label = statics.loadfrompickle("/home/ubuntu/workspace/text_summary_data/data_label_pair/w2v_dlpair.pickle")
+
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True

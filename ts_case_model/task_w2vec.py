@@ -48,12 +48,13 @@ def create_label_dict(path):
 def create_vocab_dict(path, vocabulary_size,getall = False):
     
  
-  label_dict  = create_label_dict(path)
+  label_dict_ori  = create_label_dict(path)
+  label_dict = label_dict_ori[3]
   files = os.listdir(path)
   word_dict = {}
   all_words = []
 
-   for f in files:
+  for f in files:
       subfold = os.path.join(path,f)
       subfiles = os.listdir(subfold)
       
@@ -84,36 +85,82 @@ def create_vocab_dict(path, vocabulary_size,getall = False):
                  
                   word_dict[w].append(label)
 
-  return label_dict, all_words, word_dict
+  return label_dict_ori, all_words, word_dict
 
 
 
-def create_train_pair(dl_pair_path, word_label_pair, dictionary):
+def create_train_pair(dl_pair_path, word_label_pair, dictionary, r_dictionary,label_dict = {}):
     
    
     idx = 0
     for d in word_label_pair:
         
-        data = dictionary[d]
+        if d in dictionary:
         
-        for l in word_label_pair[d]:
+            data = dictionary[d]
+            
+            for l in word_label_pair[d]:
+                idx = idx + 1
+                dl_pair = [[data], l]
+                statics.savetopickle(os.path.join(dl_pair_path, str(idx) + '.pickle'), dl_pair)
+                
+    if label_dict != {}:
+        for l in label_dict[3]:
+            
             idx = idx + 1
-            dl_pair = [[data], l]
+    
+            labelidx = label_dict[3][l] + len(dictionary)
+            
+            dictionary[l] = labelidx
+            r_dictionary[labelidx] = l
+            
+            label = np.zeros(len(label_dict[3]))
+            label[label_dict[3][l]] = 1
+            
+            dl_pair = [[labelidx], label]
             statics.savetopickle(os.path.join(dl_pair_path, str(idx) + '.pickle'), dl_pair)
+            
+    return dictionary, r_dictionary
+            
+
+def random_batch(dl_pair_path, index, shufflelist): 
+    
+    batch_d = []
+    batch_l = []
+    
+    if shufflelist == []:
+        
+        shufflelist = os.listdir(dl_pair_path)
+        shuffle(shufflelist)
+        print('Shuffle List')
+    batch_file = shufflelist[index:index+batch_size]
+    
+    for f in batch_file:
+        
+        dl = statics.loadfrompickle(os.path.join(dl_pair_path, f))
+        batch_d = batch_d + dl[0]
+        batch_l.append(dl[1])
+        
+    return  batch_d, batch_l, shufflelist
     
 
-datapath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test'
-#datapath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/toy_test'
-vocabulary_size = 10000
+model_file = '/home/dashmoment/workspace/text_summary_data/model/task_w2v.ckpt'
+checkpoint_dir ='/home/dashmoment/workspace/text_summary_data/model/'
+
+datapath = '/home/dashmoment/dataset/toy_test' 
+words_dict_path = '/home/dashmoment/workspace/text_summary_data/data_label_pair/toy_words_dict_for_taskw2v.pickle'
+label_dict_path = '/home/dashmoment/workspace/text_summary_data/data_label_pair/toy_label_dict_for_taskw2v.pickle'
+word_label_pair_path = '/home/dashmoment/workspace/text_summary_data/data_label_pair/toy_dl_pair_for_taskw2v.pickle'
+dl_pair_path = '/home/dashmoment/workspace/text_summary_data/data_label_pair/task_w2v_dl'
+
+#datapath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test'
+#words_dict_path = '/home/ubuntu/workspace/text_summary_data/data_label_pair/toy_words_dict_for_taskw2v.pickle'
+#label_dict_path = '/home/ubuntu/workspace/text_summary_data/data_label_pair/toy_label_dict_for_taskw2v.pickle'
+#word_label_pair_path = '/home/ubuntu/workspace/text_summary_data/data_label_pair/toy_dl_pair_for_taskw2v.pickle'
+#dl_pair_path = '/home/ubuntu/workspace/text_summary_data/data_label_pair/task_w2v_dl'
+
+vocabulary_size = 552
 batch_size = 64
- 
-
-#word_label = create_vocab_dict(datapath,vocabulary_size)
-#statics.savetopickle('dl_pair_for_taskw2v.pickle', word_label)
-
-words_dict_path = '/home/ubuntu/workspace/text_summary_data/data_label_pair/toy_words_dict_for_taskw2v.pickle'
-label_dict_path = '/home/ubuntu/workspace/text_summary_data/data_label_pair/toy_label_dict_for_taskw2v.pickle'
-word_label_pair_path = '/home/ubuntu/workspace/text_summary_data/data_label_pair/toy_dl_pair_for_taskw2v.pickle'
 
 if os.path.isfile(words_dict_path) and os.path.isfile(word_label_pair_path) and os.path.isfile(label_dict_path):
     words = statics.loadfrompickle(words_dict_path)
@@ -129,37 +176,9 @@ else:
    
 
 d,c,dictionary, r_dictionary = w2v.build_dataset(words, vocabulary_size)
+dictionary, r_dictionary = create_train_pair(dl_pair_path, word_label_pair, dictionary, r_dictionary,label_dict)
 
-dl_pair_path = '/home/ubuntu/workspace/text_summary_data/data_label_pair/task_w2v_dl'
-#create_train_pair(dl_pair_path, word_label_pair, dictionary)
-
-shufflelist = []
-index = 0
-batch_d = []
-batch_l = []
-
-if shufflelist == []:
-    
-    shufflelist = os.listdir(dl_pair_path)
-    shuffle(shufflelist)
-    print('Shuffle List')
-batch_file = shufflelist[index:index+batch_size]
-
-for f in batch_file:
-    
-    dl = statics.loadfrompickle(os.path.join(dl_pair_path, f))
-    batch_d = batch_d + dl[0]
-    batch_l.append(dl[1])
-
-batch_l = np.stack(batch_l)
-
-for l in label_dict:
-    
-    labelidx = label_dict[l] + len(dictionary)
-    dictionary[l] = labelidx
-    r_dictionary[labelidx] = l
-
-embedding_size = len(label_dict)
+embedding_size = len(label_dict[3])
 
 
 with tf.device('/gpu:0'):
@@ -177,22 +196,118 @@ with tf.device('/gpu:0'):
     layer_1 = tf.add(tf.matmul(embed, weight), biases)
     output = tf.nn.relu(layer_1)
     
-    m_loss = tf.nn.softmax_cross_entropy_with_logits(label=train_labels[[:,0:12]], logit=output[:,0:12])
-#    r_model = tf.nn.softmax(output[:,0:12])
-#    r_os = tf.nn.softmax(output[:,12:17])
-#    r_c = tf.nn.softmax(output[:,17:])
+    model_range = [0, len(label_dict[0])]
+    os_range = [model_range[1], model_range[1]+len(label_dict[1])]
+    cat_range = [os_range[1], os_range[1]+len(label_dict[2])]
     
-    soft_out = tf.concat([r_model, r_os, r_c], axis = 1)
+    m_loss = tf.nn.softmax_cross_entropy_with_logits(labels=train_labels[:,model_range[0]:model_range[1]], logits=output[:,model_range[0]:model_range[1]])
+    os_loss = tf.nn.softmax_cross_entropy_with_logits(labels=train_labels[:,os_range[0]:os_range[1]], logits=output[:,os_range[0]:os_range[1]])
+    cat_loss = tf.nn.softmax_cross_entropy_with_logits(labels=train_labels[:,cat_range[0]:cat_range[1]], logits=output[:,cat_range[0]:cat_range[1]])
     
+    loss = tf.reduce_mean(m_loss + os_loss + cat_loss)
+    optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
+    
+    
+    eval_w2v = tf.concat([tf.nn.softmax(output[:, model_range[0]:model_range[1]]),
+                          tf.nn.softmax(output[:, os_range[0]:os_range[1]]),
+                            tf.nn.softmax(output[:, cat_range[0]:cat_range[1]])], axis=1)
+
+continue_training = 0
+init_epoch = 0
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
 
 with tf.Session(config = config) as sess:
     
-    sess.run(tf.global_variables_initializer())  
+    saver = tf.train.Saver()
+  
+    if continue_training !=0:
     
-    em = sess.run(soft_out, feed_dict={train_inputs:batch_d})
-    em2 = sess.run(output, feed_dict={train_inputs:batch_d})
+            resaver = tf.train.Saver()
+            resaver.restore(sess, tf.train.latest_checkpoint(checkpoint_dir))
+            continue_training = 0
+            
+    else:
+            sess.run(tf.global_variables_initializer())  
+ 
+    
+    for epoch in range(init_epoch,2000):
+        
+        shufflelist = []
+        
+        
+        for idx in range(len(os.listdir(dl_pair_path))//batch_size):
+            
+            print("Epoch {}, Process {}/{}".format(epoch, idx, len(os.listdir(dl_pair_path))//batch_size))
+            
+            index = idx*batch_size
+            data, label, shufflelist = random_batch(dl_pair_path, index, shufflelist)
+            
+            sess.run(optimizer, feed_dict={train_inputs:data, train_labels:label})
+            
+            
+            if idx%200 == 0:
+                summary_idx = epoch*len(os.listdir(dl_pair_path)) + index
+                saver.save(sess, model_file, global_step=summary_idx)
+                sloss = sess.run(loss, feed_dict={train_inputs:data, train_labels:label})
+                print("Loss:{}".format(sloss))
+
+    idx = 0
+    batch = []
+    
+    w2v_dict = {}
+    
+    for i in dictionary:
+        
+        idx = idx + 1
+        
+        batch = batch + [dictionary[i]]
+        
+        if idx %batch_size == 0:
+            
+             w2v_res = sess.run(eval_w2v, feed_dict={train_inputs:batch})
+             
+             
+             for i in range(len(batch)):
+                 w2v_dict[r_dictionary[batch[i]]] = [i, w2v_res[i]]
+             
+             batch = []
+            
+            
+final_embeddings = []
+plot_words = []
+
+try:
+  # pylint: disable=g-import-not-at-top
+  from sklearn.manifold import TSNE
+  
+  print("Start TSNE")
+  tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
+  plot_only = 576
+  
+  l = statics.loadfrompickle(os.path.join(dl_pair_path,'26318.pickle'))
+  final_embeddings.append(l[1])
+  d = w2v_dict[r_dictionary[598]][1]
+  final_embeddings.append(d)
+  final_embeddings = np.stack(final_embeddings)
+  
+  
+#  for i in w2v_dict:
+#      
+#      final_embeddings.append(w2v_dict[i][1])
+#      plot_words.append(w2v_dict[i][0])
+#      
+#  final_embeddings = np.stack(final_embeddings)
+#  
+  low_dim_embs = tsne.fit_transform(final_embeddings)
+  labels = [r_dictionary[598],r_dictionary[598]]
+#  labels = [r_dictionary[i] for i in plot_words]
+#  labels = labels[:plot_only]
+  w2v.plot_with_labels(low_dim_embs, labels, filename='tsne_2000.png')
+except ImportError:
+  print('Please install sklearn, matplotlib, and scipy to show embeddings.')   
+#    em = sess.run(soft_out, feed_dict={train_inputs:batch_d})
+    
     
     
     
