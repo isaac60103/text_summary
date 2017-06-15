@@ -3,21 +3,38 @@ import re
 import pickle
 import os
 import shutil
-import collections
+import statics
+import sys
 
 #------------Context File Paser---------
 
 
-def slipt_doc_by_space(filename, re_reg = '[^-_a-z0-9A-Z\']'):
+def slipt_doc_by_space(filename, re_reg = '<a href.*?</a>|www.*|[^-_\w]'):
     
     text = open(filename, "r").read()
-    r = re.compile(re_reg)
     
+    cleantext = slipt_words_by_space(text, re_reg)
+    
+    return cleantext
+
+
+def slipt_words_by_space(text, re_reg  = '<a href.*?</a>|www.*|[^-_\w]'):
+    
+    r = re.compile(re_reg)
     text= r.sub(" ", text)
+    
+    
+    re_reg = '[-_]'
+    r = re.compile(re_reg)
+    text= r.sub("", text)
+    
     
     splited = re.split('\s', text)
     
     cleantext = list(filter(None, splited))
+    cleantext = list(filter(lambda x: len(x)> 3, cleantext))
+    cleantext = list(filter(lambda x: len(x)<20, cleantext))
+    cleantext = list(filter(lambda x: not x.isdigit() , cleantext))
     
     return cleantext
 
@@ -38,24 +55,20 @@ def slipt_label(filename):
     label_dict['model'] =  strip_label_content(splited[0])
     label_dict['category'] =  strip_label_content(splited[1])
     label_dict['OS'] =  strip_label_content(splited[2])
-    label_dict['subject'] =  strip_label_content(splited[3])
+    label_dict['subject'] =  strip_label_content(splited[3], False)
     
     r = re.compile('Description:')
     
-    des = [r.sub(" ", x) for x in splited[4:]]
-    r = re.compile('[^-_a-z0-9A-Z\']')
-    des = [r.sub(" ", x) for x in des]
-    des = list(filter(lambda x: len(x)> 10, des))
+    des_sub = [r.sub("", x) for x in splited[4:]]
     
-    resdes = []
+    description = ''
     
-    for i in des:
-         resdes = resdes + re.split(' ', i)
-        
+    for idx in range(len(des_sub)): description = description + des_sub[idx]
     
-    label_dict['description'] =  list(filter(None, resdes))
+    description = slipt_words_by_space(description)
+    
 
-    #print(label_dict)
+    label_dict['description'] =  description
 
     
     return label_dict
@@ -63,12 +76,18 @@ def slipt_label(filename):
 def strip_label_content(splited_text, split=True):
 
     tmp = []
-    if split==True: text = re.split(':', splited_text)
-    else: text = splited_text
-
+    text = re.split(':', splited_text)
+  
     for idx in range(1,len(text)):
         tmp.append(text[idx])
-
+      
+    
+    if split == True: 
+        re_reg = '[-_]'
+        r = re.compile(re_reg)
+        tmp[0]= r.sub("", tmp[0])
+        tmp[0] = tmp[0].replace(" ","")
+    
     return tmp
 
 
@@ -79,11 +98,17 @@ def create_data_label_path(dataset_path_list):
 
     data_dict = {}
     
+    count = 0
     
     for d in dataset_path_list:
+              
         lsdir = os.listdir(d)
         
         for folder in lsdir:
+            
+            count = count + 1
+            sys.stdout.write("Create path dict:{}/{}\n".format(count,  len(lsdir)))
+            sys.stdout.flush()
             
             folderpath = os.path.join(d, folder)
             filelist = os.listdir(folderpath)
@@ -132,7 +157,10 @@ def create_data_label_path(dataset_path_list):
                 
     return data_dict           
                     
-def process_data_to_pickle(process_root, path_dict):
+def process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path):
+    
+    wdicts = {}
+    ldicts = {}
 
     for d in  path_dict:  
         
@@ -153,6 +181,7 @@ def process_data_to_pickle(process_root, path_dict):
                 if not os.path.isfile(savepath):
                 
                     stripe = slipt_doc_by_space(clist[c])
+                    wdicts = collect_dict(stripe, wdict_path, wdicts)
                     
                     with open(savepath, 'wb') as f:
                          pickle.dump(stripe, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -163,48 +192,79 @@ def process_data_to_pickle(process_root, path_dict):
         
         if not os.path.isfile(lsavepath):
             with open(lsavepath, 'wb') as lf:
-                pickle.dump(slipt_label(path_dict[d]['label']), lf, protocol=pickle.HIGHEST_PROTOCOL)
+                
+                labels = slipt_label(path_dict[d]['label'])
+                pickle.dump(labels, lf, protocol=pickle.HIGHEST_PROTOCOL)
+                ldicts = collect_dict(labels, ldict_path, ldicts)
+                
+                
+def collect_dict(data, dict_path,  wdicts={}):
+    
+    for w in data:
+        
+        if w in wdicts: 
+            wdicts[w] = wdicts[w] + 1
+        else:
+            wdicts[w] = 1
+                  
+    statics.savetopickle(wdicts, dict_path)        
+    return wdicts
 
 
-def build_dataset(words, n_words):
-  """Process raw inputs into a dataset."""
-  count = [['UNK', -1]]
-  count.extend(collections.Counter(words).most_common(n_words - 1))
-  dictionary = dict()
-  for word, _ in count:
-    dictionary[word] = len(dictionary)
-  data = list()
-  unk_count = 0
-  for word in words:
-    if word in dictionary:
-      index = dictionary[word]
-    else:
-      index = 0  # dictionary['UNK']
-      unk_count += 1
-    data.append(index)
-  count[0][1] = unk_count
-  reversed_dictionary = dict(zip(dictionary.values(), dictionary.keys()))
-  
-  data = list(filter(lambda a: a != 0, data))
-  return data, count, dictionary, reversed_dictionary       
+#def build_dataset(words, n_words):
+#  """Process raw inputs into a dataset."""
+#  count = [['UNK', -1]]
+#  count.extend(collections.Counter(words).most_common(n_words - 1))
+#  dictionary = dict()
+#  for word, _ in count:
+#    dictionary[word] = len(dictionary)
+#  data = list()
+#  unk_count = 0
+#  for word in words:
+#    if word in dictionary:
+#      index = dictionary[word]
+#    else:
+#      index = 0  # dictionary['UNK']
+#      unk_count += 1
+#    data.append(index)
+#  count[0][1] = unk_count
+#  reversed_dictionary = dict(zip(dictionary.values(), dictionary.keys()))
+#  
+#  data = list(filter(lambda a: a != 0, data))
+#  return data, count, dictionary, reversed_dictionary       
                            
-dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset'
-dataset_path_list = [os.path.join(dataset_root, 'tier1'), os.path.join(dataset_root, 'tier2')]    
-path_dict = create_data_label_path(dataset_path_list)           
-process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed'
-
-rpath = os.path.join('/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed/5002000000GPRxB', '0.pickle')
-with open(rpath, 'rb') as f:
-        label_dict_res = pickle.load(f)
-
-
+#dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset'
+#dataset_path_list = [os.path.join(dataset_root, 'tier1')]    
+#path_dict = create_data_label_path(dataset_path_list)           
+#process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed'
+#
+#rpath = os.path.join('/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed/5002000000GPRxB', '0.pickle')
+#with open(rpath, 'rb') as f:
+#        label_dict_res = pickle.load(f)
 
 
+dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test'
+process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/process_new'
+ path_dict, wdict_path, ldict_path
 
+path_dict = create_data_label_path([dataset_root])    
 
+process_data_to_pickle
 
-
-
+#case_list = os.listdir(dataset_root)
+#case_path = os.path.join(dataset_root, case_list[39])
+#
+#mail_list = os.listdir(case_path)
+#
+#mail_path = os.path.join(case_path, mail_list[0])
+#
+#
+#clean_text = slipt_doc_by_space(mail_path)
+#
+#label_path = os.path.join(case_path, 'labels.txt')
+#
+#
+#label = slipt_label(label_path)
 
 
 

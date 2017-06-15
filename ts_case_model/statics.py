@@ -7,12 +7,13 @@ import collections
 def savetopickle(filepath, obj):
     with open(filepath, 'wb') as f:
         pickle.dump(obj, f, protocol=pickle.HIGHEST_PROTOCOL)
+    f.close()
         
 def loadfrompickle(filepath):
     with open(filepath, 'rb') as f:
         
         obj = pickle.load(f)
-        
+    f.close()    
     return obj
 
 def calc_tfidf(process_root):
