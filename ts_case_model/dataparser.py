@@ -245,11 +245,16 @@ def collect_dict(data, dict_path,  wdicts={}):
 
 dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test'
 process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/process_new'
- path_dict, wdict_path, ldict_path
+
+dataset_root = '/home/dashmoment/dataset/toy_test'
+process_root = '/dataset/ts_case_process'
+
 
 path_dict = create_data_label_path([dataset_root])    
+wdict_path = '/dataset/ts_case_process/wdict.pickle'
+ldict_path = '/dataset/ts_case_process/ldict.pickle'
 
-process_data_to_pickle
+process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path)
 
 #case_list = os.listdir(dataset_root)
 #case_path = os.path.join(dataset_root, case_list[39])
