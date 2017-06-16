@@ -57,6 +57,7 @@ def slipt_label(filename):
     label_dict['OS'] =  strip_label_content(splited[2])
     label_dict['subject'] =  strip_label_content(splited[3], False)
     
+    
     r = re.compile('Description:')
     
     des_sub = [r.sub("", x) for x in splited[4:]]
@@ -118,6 +119,8 @@ def create_data_label_path(dataset_path_list):
                 filelist.remove('labels.txt')
                 filepath = [{x:os.path.join(folderpath, x)} for x in filelist]
                 
+                if type(filepath) is not list: filepath = [filepath]
+                
                 data_dict[folder]['context'] = filepath 
             else:
                 data_dict[folder]['context'] = {}
@@ -160,9 +163,17 @@ def create_data_label_path(dataset_path_list):
 def process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path):
     
     wdicts = {}
-    ldicts = {}
+    ldicts = {'model':{},'OS':{},'category':{}}
+    
+    count = 0
 
-    for d in  path_dict:  
+    for d in  path_dict:
+        
+           
+        count = count + 1
+        sys.stdout.write("Data to pickle:{}/{}\n".format(count,  len(path_dict)))
+        sys.stdout.flush()
+        if count < 3472: continue
         
         casefolder = os.path.join(process_root, d)
         
@@ -171,16 +182,18 @@ def process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path):
         
         file_idx = 0 
         
+        if type(path_dict[d]['context']) is not list: path_dict[d]['context'] = [path_dict[d]['context']]
+        
         for clist in  path_dict[d]['context']:
             
             for c in clist:
                 
-                         
+               
                 savepath = os.path.join(casefolder, str(file_idx)+'.pickle')
                 
                 if not os.path.isfile(savepath):
                 
-                    stripe = slipt_doc_by_space(clist[c])
+                    stripe = slipt_doc_by_space(clist[c])               
                     wdicts = collect_dict(stripe, wdict_path, wdicts)
                     
                     with open(savepath, 'wb') as f:
@@ -198,16 +211,31 @@ def process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path):
                 ldicts = collect_dict(labels, ldict_path, ldicts)
                 
                 
-def collect_dict(data, dict_path,  wdicts={}):
+def collect_dict(data, dict_path,  wdicts={'model':{},'OS':{},'category':{}}):
     
-    for w in data:
+    if type(data) is dict:
+      
+        lmodel = data['model'][0]
+        los = data['OS'][0]
+        lcat = data['category'][0]
         
-        if w in wdicts: 
-            wdicts[w] = wdicts[w] + 1
-        else:
-            wdicts[w] = 1
-                  
-    statics.savetopickle(wdicts, dict_path)        
+       
+        if lmodel not in wdicts['model']: wdicts['model'][lmodel] = len(wdicts['model'])
+        if los not in wdicts['OS']: wdicts['OS'][los] = len(wdicts['OS'])
+        if lcat not in wdicts['category']: wdicts['category'][lcat] = len(wdicts['category'])
+                      
+       
+    else:
+    
+        for w in data:
+            
+            if w in wdicts: 
+                wdicts[w] = wdicts[w] + 1
+            else:
+                wdicts[w] = 1
+                      
+    statics.savetopickle(dict_path, wdicts)        
+    
     return wdicts
 
 
@@ -233,43 +261,34 @@ def collect_dict(data, dict_path,  wdicts={}):
 #  data = list(filter(lambda a: a != 0, data))
 #  return data, count, dictionary, reversed_dictionary       
                            
-#dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset'
-#dataset_path_list = [os.path.join(dataset_root, 'tier1')]    
-#path_dict = create_data_label_path(dataset_path_list)           
-#process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed'
-#
-#rpath = os.path.join('/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed/5002000000GPRxB', '0.pickle')
-#with open(rpath, 'rb') as f:
-#        label_dict_res = pickle.load(f)
+dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset'
+process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2'
+wdict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/wdict.pickle'
+ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/ldict.pickle'
+
+dataset_path_list = [os.path.join(dataset_root, 'tier1'), os.path.join(dataset_root, 'tier2')]    
+path_dict = create_data_label_path(dataset_path_list)           
 
 
-dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test'
-process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/process_new'
-
-dataset_root = '/home/dashmoment/dataset/toy_test'
-process_root = '/dataset/ts_case_process'
 
 
-path_dict = create_data_label_path([dataset_root])    
-wdict_path = '/dataset/ts_case_process/wdict.pickle'
-ldict_path = '/dataset/ts_case_process/ldict.pickle'
+#dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/rawdata/'
+#process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/process'
+#wdict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/process/wdict.pickle'
+#ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/process/ldict.pickle'
+
+#dataset_root = '/home/dashmoment/dataset/toy_test'
+#process_root = '/dataset/ts_case_process'
+#wdict_path = '/dataset/ts_case_process/wdict.pickle'
+#ldict_path = '/dataset/ts_case_process/ldict.pickle'
+#path_dict = create_data_label_path([dataset_root])    
 
 process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path)
 
-#case_list = os.listdir(dataset_root)
-#case_path = os.path.join(dataset_root, case_list[39])
-#
-#mail_list = os.listdir(case_path)
-#
-#mail_path = os.path.join(case_path, mail_list[0])
-#
-#
-#clean_text = slipt_doc_by_space(mail_path)
-#
-#label_path = os.path.join(case_path, 'labels.txt')
-#
-#
-#label = slipt_label(label_path)
+#wdict = statics.loadfrompickle(wdict_path)
+#ldict = statics.loadfrompickle(ldict_path)
+
+
 
 
 
