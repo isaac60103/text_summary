@@ -5,6 +5,9 @@ import os
 import shutil
 import statics
 import sys
+import operator
+
+import collections
 
 #------------Context File Paser---------
 
@@ -95,7 +98,9 @@ def strip_label_content(splited_text, split=True):
 # Create a dictionary contain all mails and label in each case
 #   dict['case name'] = {mail_context_path, label_file_path}
 
-def create_data_label_path(dataset_path_list):
+def create_data_label_path(dataset_path_list, dl_pair_path):
+    
+    if os.path.isfile(dl_pair_path): return statics.loadfrompickle(dl_pair_path)
 
     data_dict = {}
     
@@ -157,23 +162,33 @@ def create_data_label_path(dataset_path_list):
             else:
                 data_dict[folder]['label'] = label_path
                 
-                
+    data_dict =   statics.savetopickle(dl_pair_path, data_dict)   
     return data_dict           
                     
 def process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path):
     
-    wdicts = {}
-    ldicts = {'model':{},'OS':{},'category':{}}
+    
+    if os.path.isfile(wdict_path):
+        wdicts = statics.loadfrompickle(wdict_path)
+    else:
+        wdicts = {}
+        
+        
+    if os.path.isfile(ldict_path):
+        
+        ldicts = statics.loadfrompickle(ldict_path)
+    else:
+        ldicts = {'model':{},'OS':{},'category':{}}
+        
+   
     
     count = 0
 
     for d in  path_dict:
-        
-           
+                  
         count = count + 1
         sys.stdout.write("Data to pickle:{}/{}\n".format(count,  len(path_dict)))
         sys.stdout.flush()
-        if count < 3472: continue
         
         casefolder = os.path.join(process_root, d)
         
@@ -187,9 +202,10 @@ def process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path):
         for clist in  path_dict[d]['context']:
             
             for c in clist:
-                
-               
+                             
                 savepath = os.path.join(casefolder, str(file_idx)+'.pickle')
+                
+                if os.path.isfile(savepath): continue
                 
                 if not os.path.isfile(savepath):
                 
@@ -202,6 +218,7 @@ def process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path):
             file_idx = file_idx + 1
          
         lsavepath = os.path.join(casefolder, 'label.pickle')
+        if os.path.isfile(lsavepath): continue
         
         if not os.path.isfile(lsavepath):
             with open(lsavepath, 'wb') as lf:
@@ -239,36 +256,39 @@ def collect_dict(data, dict_path,  wdicts={'model':{},'OS':{},'category':{}}):
     return wdicts
 
 
-#def build_dataset(words, n_words):
-#  """Process raw inputs into a dataset."""
-#  count = [['UNK', -1]]
-#  count.extend(collections.Counter(words).most_common(n_words - 1))
-#  dictionary = dict()
-#  for word, _ in count:
-#    dictionary[word] = len(dictionary)
-#  data = list()
-#  unk_count = 0
-#  for word in words:
-#    if word in dictionary:
-#      index = dictionary[word]
-#    else:
-#      index = 0  # dictionary['UNK']
-#      unk_count += 1
-#    data.append(index)
-#  count[0][1] = unk_count
-#  reversed_dictionary = dict(zip(dictionary.values(), dictionary.keys()))
-#  
-#  data = list(filter(lambda a: a != 0, data))
-#  return data, count, dictionary, reversed_dictionary       
+def build_dataset(words, n_words):
+  """Process raw inputs into a dataset."""
+  count = [['UNK', -1]]
+  count.extend(collections.Counter(words).most_common(n_words - 1))
+  dictionary = dict()
+  for word, _ in count:
+    dictionary[word] = len(dictionary)
+  data = list()
+  unk_count = 0
+  for word in words:
+    if word in dictionary:
+      index = dictionary[word]
+    else:
+      index = 0  # dictionary['UNK']
+      unk_count += 1
+    data.append(index)
+  count[0][1] = unk_count
+  reversed_dictionary = dict(zip(dictionary.values(), dictionary.keys()))
+  
+  data = list(filter(lambda a: a != 0, data))
+  return data, count, dictionary, reversed_dictionary       
                            
 dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset'
 process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2'
 wdict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/wdict.pickle'
 ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/ldict.pickle'
 
-dataset_path_list = [os.path.join(dataset_root, 'tier1'), os.path.join(dataset_root, 'tier2')]    
-path_dict = create_data_label_path(dataset_path_list)           
+final_ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_ldict.pickle'
+final_wdict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict20k.pickle'
+dl_pair_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/dl_path_pair.pickle'
 
+#dataset_path_list = [os.path.join(dataset_root, 'tier1'), os.path.join(dataset_root, 'tier2')]    
+#path_dict = create_data_label_path(dataset_path_list, dl_pair_path)           
 
 
 
@@ -283,16 +303,92 @@ path_dict = create_data_label_path(dataset_path_list)
 #ldict_path = '/dataset/ts_case_process/ldict.pickle'
 #path_dict = create_data_label_path([dataset_root])    
 
-process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path)
-
-#wdict = statics.loadfrompickle(wdict_path)
-#ldict = statics.loadfrompickle(ldict_path)
+#process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path)
 
 
 
+def getChinese(context):
+   # context = context.decode("utf-8") # convert context from str to unicode
+    filtrate = re.compile(u'[^\u4E00-\u9FA5]') # non-Chinese unicode range
+    context = filtrate.sub(r'', context) # remove all non-Chinese letters
+    #context = context.encode("utf-8") # convert unicode back to str
+    return context
 
 
 
+
+def create_wdict_ldict(Nword, wdict_path, ldict_path, final_wdict_path, final_ldict_path):
+
+    wdict = statics.loadfrompickle(wdict_path)
+    ldict = statics.loadfrompickle(ldict_path)
+    sorted_wdict = sorted(wdict.items(), key=operator.itemgetter(1))
+    
+    r_wdict = {}
+    pure_dict = {}
+    
+    
+    label_type = ['OS', 'category', 'model']
+    
+    r_ldict = {}
+    r_ldict[0] = 'UNKL'
+    pure_ldict = {}
+    pure_ldict['UNKL'] = 0
+    
+    count = 1
+    for lt in label_type:
+        
+        
+         for l in ldict[lt]:
+             
+             if len(l) > 1  and l not in pure_ldict:
+                 r_ldict[count] = l
+                 pure_ldict[l] = len(pure_ldict)
+                 count = count + 1
+                 
+             elif len(l) > 1:
+                 
+            
+                 l = lt+l
+                 r_ldict[count] = l    
+                 pure_ldict[l] = len(pure_ldict)
+                 count = count + 1
+                 print(l)
+                 
+             
+            
+    
+    
+    r_wdict[0] = 'UNK'
+    pure_dict['UNK'] = 0
+    
+    idx = 1
+    count = 1
+    while idx < Nword + 1:
+        
+#        print("Create_dict:{}/{}".format(count, len(sorted_wdict)))
+        
+       
+        
+        if len(getChinese(sorted_wdict[-count][0])) == 0: 
+            r_wdict[idx] = sorted_wdict[-count][0]
+            pure_dict[r_wdict[idx]] = idx
+            idx = idx + 1
+        
+        count = count + 1
+    
+    
+    for i in range(1,len(r_ldict)):
+        
+        pure_dict[r_ldict[i]] = len(r_wdict)
+        r_wdict[len(r_wdict)] = r_ldict[i]
+
+    statics.savetopickle(final_wdict_path, pure_dict)  
+    statics.savetopickle(final_ldict_path, pure_ldict)  
+          
+    return pure_dict, pure_ldict
+
+Nword = 20000
+pure_dict, pure_ldict = create_wdict_ldict(Nword,  wdict_path, ldict_path,  final_wdict_path, final_ldict_path)
 
 
 
