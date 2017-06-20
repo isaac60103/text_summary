@@ -30,7 +30,7 @@ for i in word_pool:
     
 data = code_words
 
-data_index = 0
+data_index = len(data) - 3
 
 def generate_batch(batch_size, num_skips, skip_window):
     
@@ -44,6 +44,7 @@ def generate_batch(batch_size, num_skips, skip_window):
   if data_index + span > len(data):
     data_index = 0
   buffer.extend(data[data_index:data_index + span])
+
   data_index += span
   for i in range(batch_size // num_skips):
     target = skip_window  # target label at the center of the buffer
@@ -55,10 +56,14 @@ def generate_batch(batch_size, num_skips, skip_window):
       batch[i * num_skips + j] = buffer[skip_window]
       labels[i * num_skips + j, 0] = buffer[target]
     if data_index == len(data):
-      buffer[:] = data[:span]
+      
+      for i in range(span): 
+          buffer[i] = data[i]
+      print(buffer)
       data_index = span
     else:
       buffer.append(data[data_index])
+      
       data_index += 1
   # Backtrack a little bit to avoid skipping words in the end of a batch
   data_index = (data_index + len(data) - span) % len(data)
@@ -75,7 +80,7 @@ valid_size = 3     # Random set of words to evaluate similarity on.
 valid_window = 100  # Only pick dev samples in the head of the distribution.
 valid_examples = np.random.choice(valid_window, valid_size, replace=False)
 num_sampled = 64    # Number of negative examples to sample.
-num_steps = len(data)*5
+num_steps = len(data)*2
 #vecfilename = 'w2v.pickle'
 
 
@@ -122,12 +127,13 @@ with graph.as_default():
 
 
 continue_training = 1
-init_iter = 0
-N_iter = len(data)*5
+init_iter = 3029000
+N_iter = 3029001
 
 checkpoint_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/model'
 model_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/model/w2v.ckpt"
 log_dir = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/log"
+encode_dict = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/w2v_dict.pickle'
 
 
 config = tf.ConfigProto()
@@ -173,22 +179,26 @@ with tf.Session(graph=graph, config = config) as session:
           
 
   final_embeddings = normalized_embeddings.eval()
+  
+  with open(encode_dict, 'wb') as handle:
+    pickle.dump(final_embeddings, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+final_rwdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_rwdict20k.pickle'
+d_rdict = statics.loadfrompickle(final_rwdict_path)
 
-#try:
-#  # pylint: disable=g-import-not-at-top
-#  from sklearn.manifold import TSNE
-#  
-#  print("Start TSNE")
-#  tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
-#  plot_only = 500
-#  low_dim_embs = tsne.fit_transform(final_embeddings[:plot_only, :])
-#  labels = [d_rdict[i] for i in range(plot_only)]
-#  w2v.plot_with_labels(low_dim_embs, labels)
-#except ImportError:
-#  print('Please install sklearn, matplotlib, and scipy to show embeddings.')
-#with open(vecfilename, 'wb') as handle:
-#    pickle.dump(w2v_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+try:
+  # pylint: disable=g-import-not-at-top
+  from sklearn.manifold import TSNE
+  
+  print("Start TSNE")
+  tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
+  plot_only = 500
+  low_dim_embs = tsne.fit_transform(final_embeddings[:plot_only, :])
+  labels = [d_rdict[i] for i in range(plot_only)]
+  w2v.plot_with_labels(low_dim_embs, labels)
+except ImportError:
+  print('Please install sklearn, matplotlib, and scipy to show embeddings.')
+
 
 
 

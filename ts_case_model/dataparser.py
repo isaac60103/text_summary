@@ -280,15 +280,21 @@ def build_dataset(words, n_words):
                            
 dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset'
 process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2'
-wdict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/wdict.pickle'
-ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/ldict.pickle'
 
-final_ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_ldict.pickle'
-final_wdict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict20k.pickle'
-dl_pair_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/dl_path_pair.pickle'
+#dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/'
+#process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/summary_processed'
+wdict_path = os.path.join(process_root, 'wdict.pickle')
+ldict_path = os.path.join(process_root, 'ldict.pickle')
 
-#dataset_path_list = [os.path.join(dataset_root, 'tier1'), os.path.join(dataset_root, 'tier2')]    
-#path_dict = create_data_label_path(dataset_path_list, dl_pair_path)           
+
+final_ldict_path = os.path.join(process_root, 'final_ldict.pickle')
+final_wdict_path = os.path.join(process_root, 'final_wdict20k.pickle')
+final_rwdict_path = os.path.join(process_root, 'final_rwdict20k.pickle')
+dl_pair_path = os.path.join(process_root, 'dl_path_pair.pickle')
+
+#dataset_path_list = [os.path.join(dataset_root, 'tier1'), os.path.join(dataset_root, 'tier2')]  
+dataset_path_list = [os.path.join(dataset_root, 'summary_data')]    
+path_dict = create_data_label_path(dataset_path_list, dl_pair_path)           
 
 
 
@@ -318,7 +324,9 @@ def getChinese(context):
 
 
 def create_wdict_ldict(Nword, wdict_path, ldict_path, final_wdict_path, final_ldict_path):
-
+    
+    qwords = ["what", "is", " model",  "OS", "category"]
+    
     wdict = statics.loadfrompickle(wdict_path)
     ldict = statics.loadfrompickle(ldict_path)
     sorted_wdict = sorted(wdict.items(), key=operator.itemgetter(1))
@@ -379,16 +387,26 @@ def create_wdict_ldict(Nword, wdict_path, ldict_path, final_wdict_path, final_ld
     
     for i in range(1,len(r_ldict)):
         
-        pure_dict[r_ldict[i]] = len(r_wdict)
-        r_wdict[len(r_wdict)] = r_ldict[i]
+        if r_ldict[i] not in pure_dict:
+            pure_dict[r_ldict[i]] = len(r_wdict)
+            r_wdict[len(r_wdict)] = r_ldict[i]
+        
+    for i in range(len(qwords)):
+        
+        if qwords[i] not in pure_dict:
+            pure_dict[qwords[i]] = len(r_wdict)
+            r_wdict[len(r_wdict)] = qwords[i]
 
     statics.savetopickle(final_wdict_path, pure_dict)  
-    statics.savetopickle(final_ldict_path, pure_ldict)  
+    statics.savetopickle(final_ldict_path, pure_ldict) 
+    statics.savetopickle(final_rwdict_path, r_wdict)  
           
-    return pure_dict, pure_ldict
+    return pure_dict, pure_ldict, r_wdict
 
 Nword = 20000
-pure_dict, pure_ldict = create_wdict_ldict(Nword,  wdict_path, ldict_path,  final_wdict_path, final_ldict_path)
+pure_dict, pure_ldict, r_wdict = create_wdict_ldict(Nword,  wdict_path, ldict_path,  final_wdict_path, final_ldict_path)
+
+
 
 
 
