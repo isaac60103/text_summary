@@ -8,6 +8,7 @@ import sys
 
 sys.path.append('../')
 import common.statics as stat
+import tensorflow.contrib.slim as slim
 
 
 final_wdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict20k.pickle'
@@ -42,6 +43,9 @@ for i in range(2):
                 
     word_encode = []
     
+    if len(words) > 10000:
+        words = words[:10000]
+    
     for w in words:
         encode = np.zeros(len(wdict))
         if w in wdict:
@@ -56,7 +60,7 @@ for i in range(2):
         
     word_encode = np.vstack(word_encode)
     #encode = np.zeros(len(wdict))
-    raw_data = np.reshape(word_encode, (1,10,-1, 21523)) 
+    raw_data = np.reshape(word_encode, (1,20,-1, 21523)) 
     
     all_content[i] = raw_data
 
@@ -85,51 +89,36 @@ for i in range(2):
     
 
 
-inputs = tf.placeholder(tf.float32, (None, 10, None, 21523), name='input')
+inputs = tf.placeholder(tf.float32, (None, 20, 500, 21523), name='input')
 labels = tf.placeholder(tf.float32, (None, LABEL_SIZE) ,name='labels')
 max_step = tf.placeholder(tf.int64)
 
-with tf.name_scope("conv1"):
     
-            s_h = 1; s_w = 3
-            rconv1W = tf.Variable(tf.random_normal([1,3,21523,96],stddev=0.01))
-            rconv1b = tf.Variable(tf.random_normal([96],mean= 0,stddev= 0.01)) 
-            conv1_in = tf.nn.conv2d(inputs, rconv1W, strides=[1,s_h,s_w,1], padding='SAME')
-            conv1_add = tf.nn.bias_add(conv1_in, rconv1b)
-            conv1 = tf.nn.relu(conv1_add)
-            radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
-            lrn1 = tf.nn.local_response_normalization(conv1,
-                                                          depth_radius=radius,
-                                                          alpha=alpha,
-                                                          beta=beta,
-                                                          bias=bias)
-            
-            s_h = 1; s_w = 3
-            rconv2W = tf.Variable(tf.random_normal([1,3,96,128],stddev=0.01))
-            rconv2b = tf.Variable(tf.random_normal([128],mean= 0,stddev= 0.01)) 
-            conv2_in = tf.nn.conv2d(conv1, rconv2W, strides=[1,s_h,s_w,1], padding='SAME')
-            conv2_add = tf.nn.bias_add(conv2_in, rconv2b)
-            conv2 = tf.nn.relu(conv2_add)
-            radius = 2; alpha = 2e-05; beta = 0.75; bias = 1.0
-            lrn1 = tf.nn.local_response_normalization(conv2,
-                                                          depth_radius=radius,
-                                                          alpha=alpha,
-                                                          beta=beta,
-                                                          bias=bias)
+net = slim.repeat(inputs, 2, slim.conv2d, 2048 , [5, 1], scope='conv1')
+net = tf.nn.max_pool(net, [1,3, 1,1], [1,2,1,1], padding='VALID')
+net = slim.repeat(net, 2, slim.conv2d, 2048 , [5, 1], scope='conv2')
+net = tf.nn.max_pool(net, [1,5, 1,1], [1,3,1,1], padding='VALID')
+net = slim.repeat(net, 2, slim.conv2d, 2048 , [2, 1], scope='conv3')
+net = tf.nn.max_pool(net, [1,2, 1,1], [1,2,1,1], padding='VALID')
+
+
+net = slim.repeat(net, 2, slim.conv2d, 2048, [1, 5], scope='conv4')
+net = tf.nn.max_pool(net, [1,1, 5,1], [1,1,5,1], padding='VALID')
+
+net = slim.repeat(net, 2, slim.conv2d, 2048, [1, 5], scope='conv5')
+net = tf.nn.max_pool(net, [1,1, 5,1], [1,1,5,1], padding='VALID')
+
+
+
+
             
             
                     
-                
-                
-                
-#maxpool1 = tf.nn.max_pool(lrn1, ksize=[1, 1, 3, 1], strides=[1, 1, max_step, 1], padding='VALID')
-
-shape = tf.shape(conv1)
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())  
-    tconv1 = sess.run(conv1, feed_dict={inputs:raw_data, max_step:3})
-    tconv2 = sess.run(conv2, feed_dict={inputs:raw_data, max_step:2})
+    tconv1 = sess.run(net, feed_dict={inputs:raw_data, max_step:3})
+    
     
 
 
