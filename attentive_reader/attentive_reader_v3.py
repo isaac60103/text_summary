@@ -50,9 +50,9 @@ def read_and_decode(filename_queue, batch_size):
     
     return tcontent, tlabel, tquestion
 
-checkpoint_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/ts_case_project/model/attentive_reader_v2/model'
+checkpoint_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/ts_case_project/model/attentive_reader_v2/relu/model'
 checkpoint_filename = os.path.join(checkpoint_dir, 'attr_vanilla_model.ckpt')
-logfile = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/ts_case_project/model/attentive_reader_v2/log'
+logfile = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/ts_case_project/model/attentive_reader_v2/relu/log'
 
 final_wdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict20k.pickle'
 final_ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_ldict.pickle'
@@ -74,12 +74,27 @@ model_config['batch_size'] = 32
 model_config['n_entities'] = len(ldict) 
 
 
+tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/tfrecord_test/'
+tf_record_list = [os.path.join(tf_record_path, f)  for f in os.listdir(tf_record_path)]
+train_portion = int(0.9*len(tf_record_list))
+train_list = tf_record_list[:train_portion]
+test_list = tf_record_list[train_portion:]
+#test_list = tf_record_list[train_portion:]
+
+
+train_filename_queue = tf.train.string_input_producer(train_list, num_epochs=None)   
+test_filename_queue = tf.train.string_input_producer(test_list, num_epochs=None)   
+
+tcontent, tlabel, tquestion = read_and_decode(train_filename_queue, model_config['batch_size'])
+testcontent, testlabel, testquestion = read_and_decode(test_filename_queue, model_config['batch_size'])
+
+
 with tf.device('/gpu:1'):
 
   
-    inputs = tf.placeholder(tf.float32, (None, model_config['doc_time_step'], model_config['input_dim']), name='input')
-    query = tf.placeholder(tf.float32, (None, model_config['query_time_step'], model_config['input_dim']), name='question')
-    labels = tf.placeholder(tf.float32, (None, model_config['n_entities']),name='labels')
+    #inputs = tf.placeholder(tf.float32, (None, model_config['doc_time_step'], model_config['input_dim']), name='input')
+    #query = tf.placeholder(tf.float32, (None, model_config['query_time_step'], model_config['input_dim']), name='question')
+    #labels = tf.placeholder(tf.float32, (None, model_config['n_entities']),name='labels')
     learning_rate = tf.placeholder(tf.float32, shape=[], name='learning_rate')
     keep_prob = tf.placeholder(tf.float32, name='dropout_prob')
     
@@ -94,8 +109,8 @@ with tf.device('/gpu:1'):
                
     doc_var = mut.create_var_xavier('Varibles',doc_var_list)#
     
-    x = tf.unstack(inputs, model_config['doc_time_step'], 1)
-    q = tf.unstack(query, model_config['query_time_step'], 1)
+    x = tf.unstack(tcontent, model_config['doc_time_step'], 1)
+    q = tf.unstack(tquestion, model_config['query_time_step'], 1)
     
     with tf.variable_scope("query"):
         with tf.variable_scope("fw"):
@@ -141,9 +156,9 @@ with tf.device('/gpu:1'):
             content = tf.transpose(tf.stack(docout, axis=0),[2,0,1])
                 
             r = tf.transpose(tf.reduce_sum(tf.multiply(S_T[0], content), axis=1), [1, 0])          
-            logit = tf.tanh(tf.matmul(r,doc_var['w_rg'])  +  tf.matmul(y_q,doc_var['w_ug'])) 
+            logit = tf.nn.relu(tf.matmul(r,doc_var['w_rg'])  +  tf.matmul(y_q,doc_var['w_ug'])) 
 
-loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits= logit))
+loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=tlabel, logits= logit))
 #solver = tf.train.RMSPropOptimizer(learning_rate = learning_rate, momentum=0.9, decay=0.95).minimize(loss)
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 solver = optimizer.minimize(loss)
@@ -155,27 +170,15 @@ merged_summary_train = tf.summary.merge_all('train')
 merged_summary_test = tf.summary.merge_all('test')
 
 
-tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/tfrecord_test/'
-tf_record_list = [os.path.join(tf_record_path, f)  for f in os.listdir(tf_record_path)]
-train_portion = int(0.9*len(tf_record_list))
-train_list = tf_record_list[:train_portion]
-test_list = tf_record_list[train_portion:]
-#test_list = tf_record_list[train_portion:]
 
-
-train_filename_queue = tf.train.string_input_producer(train_list, num_epochs=None)   
-test_filename_queue = tf.train.string_input_producer(test_list, num_epochs=None)   
-
-tcontent, tlabel, tquestion = read_and_decode(train_filename_queue, model_config['batch_size'])
-testcontent, testlabel, testquestion = read_and_decode(test_filename_queue, model_config['batch_size'])
 
 init_op = tf.group(tf.global_variables_initializer(),
                    tf.local_variables_initializer())
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
-iteration = 26583
-continue_training = 1
+iteration = 0
+continue_training = 0
 
 #with tf.Session(config = config) as sess:
 with tf.Session() as sess:
@@ -200,9 +203,9 @@ with tf.Session() as sess:
             iteration = iteration + 1
             print("Iteration:{}".format(iteration))
             
-            data,label,question = sess.run([tcontent, tlabel, tquestion])
+            #data,label,question = sess.run([tcontent, tlabel, tquestion])
             
-            feeddict={inputs: data, query:question, labels:label, learning_rate:1e-4, keep_prob:0.2}
+            feeddict={learning_rate:1e-4, keep_prob:0.2}
             sess.run(solver, feed_dict=feeddict)
 #            tgrad = sess.run(optimizer.compute_gradients(loss), feed_dict=feeddict)
 #            smax = sess.run(tf.nn.softmax(logit), feed_dict=feeddict)
@@ -218,8 +221,8 @@ with tf.Session() as sess:
                  
                  
             if iteration%1000 == 0:
-                 data,label,question = sess.run([testcontent, testlabel, testquestion])
-                 feeddict={inputs: data, query:question, labels:label, keep_prob:1}
+                 #data,label,question = sess.run([testcontent, testlabel, testquestion])
+                 feeddict={keep_prob:1}
                  test_loss, tsummary = sess.run([loss, merged_summary_test], feed_dict=feeddict)
                  summary_writer.add_summary(tsummary, iteration)
                  print("Test loss:{}".format(test_loss))

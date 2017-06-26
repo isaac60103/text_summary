@@ -13,8 +13,6 @@ import word2vec_utility as w2v
 import statics
 
 
-
-
 datapath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2'
 w2vfile = '/home/ubuntu/workspace/text_summary_data/w2v.pickle'
 word_pool_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/words_pool.pickle'

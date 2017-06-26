@@ -19,58 +19,26 @@ def loadfrompickle(filepath):
     return obj
 
 
-def read_and_decode(filename_queue, batch_size):
-    
-    reader = tf.TFRecordReader()#
-    _, serialized_example = reader.read(filename_queue)#
-    features = tf.parse_single_example(
-      serialized_example,
-      # Defaults are not specified since both keys are required.
-      features={
-        'content': tf.FixedLenFeature([], tf.string),
-        'label': tf.FixedLenFeature([], tf.string),
-        'question': tf.FixedLenFeature([], tf.string)
-        })
-    
-    content = tf.decode_raw(features['content'], tf.float32)
-    label = tf.decode_raw(features['label'], tf.float32)
-    question = tf.decode_raw(features['question'], tf.float32)
-    
-    content = tf.reshape(content, [500,1024])
-    label = tf.reshape(label, [1946])
-    question = tf.reshape(question, [10,1024])
-    
-    
-    tcontent, tlabel, tquestion = tf.train.shuffle_batch([content, label, question],
-                                                      batch_size=batch_size,
-                                                     capacity=600,
-                                                     num_threads=3,
-                                                     min_after_dequeue=0)
-    
-    
-    return tcontent, tlabel, tquestion
-
 checkpoint_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/ts_case_project/model/attentive_reader_v2/model'
 checkpoint_filename = os.path.join(checkpoint_dir, 'attr_vanilla_model.ckpt')
-logfile = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/ts_case_project/model/attentive_reader_v2/log'
 
+src_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2'
 final_wdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict20k.pickle'
 final_ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_ldict.pickle'
+w2v_dict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/w2v_dict.pickle'
 wdict = loadfrompickle(final_wdict_path)
 ldict = loadfrompickle(final_ldict_path)
+w2v_dict = loadfrompickle(w2v_dict_path)
 
-data_config = {}
-test_config = {}
+
 model_config = {}
-dql_config = {}
-
 model_config['input_dim'] = 1024
 model_config['doc_time_step'] = 500
 model_config['query_time_step'] = 10
 model_config['ctx_lstm_size'] = 256
 model_config['question_lstm_size'] = 256
 model_config['attention_mlp_hidden'] = 100
-model_config['batch_size'] = 32
+model_config['batch_size'] = 64
 model_config['n_entities'] = len(ldict) 
 
 
@@ -138,101 +106,167 @@ with tf.device('/gpu:1'):
                 weight_stack.append(s_t)
            
             S_T = tf.nn.softmax(tf.stack(weight_stack, axis=1), dim=1)
+            #S_T = tf.nn.softmax(ost[0])
             content = tf.transpose(tf.stack(docout, axis=0),[2,0,1])
                 
             r = tf.transpose(tf.reduce_sum(tf.multiply(S_T[0], content), axis=1), [1, 0])          
             logit = tf.tanh(tf.matmul(r,doc_var['w_rg'])  +  tf.matmul(y_q,doc_var['w_ug'])) 
+            
+            prediction = tf.nn.softmax(tf.reduce_mean(logit, axis = 0))
+            
 
-loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits= logit))
-#solver = tf.train.RMSPropOptimizer(learning_rate = learning_rate, momentum=0.9, decay=0.95).minimize(loss)
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-solver = optimizer.minimize(loss)
-#grad = optimizer.compute_gradients(loss)
+def generate_wrod_label(file_list):
+    
+    words = []
+    
+    for fid in range(len(file_list)) :
+        
+        if file_list[fid] != 'label.pickle':
+            fpath = os.path.join(dir_path, file_list[fid])
+            words = words + loadfrompickle(fpath)
+            
+        else:
+            fpath = os.path.join(dir_path, 'label.pickle')
+            label = loadfrompickle(fpath)
+    
 
-tf.summary.scalar("Cross_Entropy",loss, collections=['train'])
-tf.summary.scalar("Test_Cross_Entropy",loss, collections=['test'])
-merged_summary_train = tf.summary.merge_all('train')
-merged_summary_test = tf.summary.merge_all('test')
-
-
-tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/tfrecord_test/'
-tf_record_list = [os.path.join(tf_record_path, f)  for f in os.listdir(tf_record_path)]
-train_portion = int(0.9*len(tf_record_list))
-train_list = tf_record_list[:train_portion]
-test_list = tf_record_list[train_portion:]
-#test_list = tf_record_list[train_portion:]
+    return words, label
 
 
-train_filename_queue = tf.train.string_input_producer(train_list, num_epochs=None)   
-test_filename_queue = tf.train.string_input_producer(test_list, num_epochs=None)   
+def encode_words(words):
+    
+    TIME_STEP = model_config['doc_time_step']
+    encode_word = []
+    portions = len(words)//TIME_STEP
+    
+    for p in range(portions):
+        
+        init_idx = p*TIME_STEP
+        end_idx = init_idx + TIME_STEP 
+        
+        tmp_words = words[init_idx:end_idx]
+        tmp_res = []
+        
+        for w in tmp_words:
+           
+            if w in wdict:
+                wid = wdict[w]
+                
+                tmp_res.append(w2v_dict[wid])
+            else:
+                tmp_res.append(w2v_dict[0])
+                
+        tmp_res = np.vstack(tmp_res)
+        encode_word.append(tmp_res)
+    
+    init_idx = portions*TIME_STEP
+    res_words =  words[init_idx:] 
+    tmp_res = []
+    
+    for w in res_words:
+        
+        if w in wdict:
+            wid = wdict[w]       
+            tmp_res.append(w2v_dict[wid])
+        else:
+            tmp_res.append(w2v_dict[0])
+            
+    for res_n in range(TIME_STEP - len(res_words)):
+           
+         tmp_res.append(w2v_dict[0])
+    tmp_res = np.vstack(tmp_res)
+    encode_word.append(tmp_res)
+    encode_word = np.stack(encode_word)
+    
+    return encode_word
 
-tcontent, tlabel, tquestion = read_and_decode(train_filename_queue, model_config['batch_size'])
-testcontent, testlabel, testquestion = read_and_decode(test_filename_queue, model_config['batch_size'])
+
+def encode_query():
+    
+    QTIME_STEP = model_config['query_time_step']
+    query_sentence = [["what", "is", "model"],["what", "is", "OS"],["what", "is", "category"]]
+    encode_query = []
+    for q in query_sentence:
+       tmp_q = []
+       
+       for w in q:
+           
+           wid = wdict[w]
+           tmp_q.append(w2v_dict[wid])
+       
+       while len(tmp_q) < QTIME_STEP:
+           tmp_q.append(w2v_dict[0])
+        
+       tmp_q = np.vstack(tmp_q)
+           
+       encode_query.append(tmp_q)
+       
+    return encode_query
+    
+
+
 
 init_op = tf.group(tf.global_variables_initializer(),
                    tf.local_variables_initializer())
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
-iteration = 26583
-continue_training = 1
 
-#with tf.Session(config = config) as sess:
-with tf.Session() as sess:
+dir_list = os.listdir(src_path)
+
+label_type = ["model", "OS", "category"]
+true_pos = 0
+top_5_true_pos = 0
+count = 0
+encode_query = encode_query()
+
+with tf.Session(config = config) as sess:
     
-    summary_writer = tf.summary.FileWriter(logfile, sess.graph) 
     saver = tf.train.Saver() 
-    sess.run(init_op)
+    saver.restore(sess, tf.train.latest_checkpoint(checkpoint_dir))
     
-    if continue_training !=0:
-        
-        saver.restore(sess, tf.train.latest_checkpoint(checkpoint_dir))
-        continue_training = 0
-        
-  
-          
-    coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(sess=sess, coord=coord)  
     
-    try:
-        while not coord.should_stop():
-            
-            iteration = iteration + 1
-            print("Iteration:{}".format(iteration))
-            
-            data,label,question = sess.run([tcontent, tlabel, tquestion])
-            
-            feeddict={inputs: data, query:question, labels:label, learning_rate:1e-4, keep_prob:0.2}
-            sess.run(solver, feed_dict=feeddict)
-#            tgrad = sess.run(optimizer.compute_gradients(loss), feed_dict=feeddict)
-#            smax = sess.run(tf.nn.softmax(logit), feed_dict=feeddict)
-#            tloss_test = sess.run(loss_test, feed_dict=feeddict)
-            
-            if iteration%500 == 0:
-                
-                 train_loss, summary = sess.run([loss, merged_summary_train], feed_dict=feeddict)
-                 saver.save(sess, checkpoint_filename, global_step=iteration)
-                 summary_writer.add_summary(summary, iteration)
-                 print("Train loss:{}".format(train_loss))
-                 if np.isnan(train_loss): break
-                 
-                 
-            if iteration%1000 == 0:
-                 data,label,question = sess.run([testcontent, testlabel, testquestion])
-                 feeddict={inputs: data, query:question, labels:label, keep_prob:1}
-                 test_loss, tsummary = sess.run([loss, merged_summary_test], feed_dict=feeddict)
-                 summary_writer.add_summary(tsummary, iteration)
-                 print("Test loss:{}".format(test_loss))
-            
-    except tf.errors.OutOfRangeError:
-        print('Done training -- epoch limit reached')
-    finally:
-        coord.request_stop()
-
+    for idx in range(len(dir_list)):
         
-coord.request_stop()
-coord.join(threads)   
-summary_writer.close()
+        print("Evaluation Case No. {}/{}".format(idx, len(dir_list)))
+        
+        dir_path = os.path.join(src_path, dir_list[idx])
+        if not os.path.isdir(dir_path): continue
+        file_list = os.listdir(dir_path)
+        words,raw_label =  generate_wrod_label(file_list)
+        data = encode_words(words)  
+        
+        
+        for i in range(len(label_type)):
+            
+            count = count + 1
+            
+            question= np.stack([encode_query[i] for j in range(len(data))])
+            
+            feeddict={inputs: data, query:question,  keep_prob:1}
+            predict_res = sess.run(prediction, feed_dict= feeddict)
+                         
+            label_words = raw_label[label_type[i]][0]
+            label_pad = np.zeros(len(ldict), np.float32)
+            
+            if label_words in ldict: 
+                          
+                label_pad[ldict[label_words]] = 1
+            else:
+                label_pad[ldict['UNKL']] = 1
+            
+            labels = label_pad            
+            predict_sort = np.argsort(predict_res)
+            top_1_pre = predict_sort[-1]
+            top_5_pre = predict_sort[-5:]
+            
+            if  np.argmax(labels) ==  top_1_pre:
+                true_pos = true_pos + 1
+            elif  np.argmax(labels) in top_5_pre:
+                top_5_true_pos = top_5_true_pos + 1
+        
+        print("Top1_Error:{}".format(1-true_pos/count))
+        print("Top5_Error:{}".format(1-top_5_true_pos/count))
 sess.close()  
 
     

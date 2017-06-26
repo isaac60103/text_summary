@@ -18,7 +18,7 @@ def loadfrompickle(filepath):
     return obj
 
 
-src_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2'
+src_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset_summary/pickle/'
 
 final_wdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict20k.pickle'
 final_ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_ldict.pickle'
@@ -35,40 +35,19 @@ EMBEDDING_SIZE = len(w2v_dict[0])
 LABEL_SIZE = len(ldict)
 
 
-tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/tfrecord_test'
+tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset_summary/tfrecord_500'
 fidx = len(os.listdir(tf_record_path))
-fpath = os.path.join(tf_record_path, 'dql_pair_ts500_'+str(fidx)+ '.tfrecords')
+fpath = os.path.join(tf_record_path, 'dl_pair_ts500_'+str(fidx)+ '.tfrecords')
 writer = tf.python_io.TFRecordWriter(fpath)
 
 
-
-#--------------------Encode query----------------
-encode_query = []
-query = [["what", "is", "model"],["what", "is", "OS"],["what", "is", "category"]]
-
-for q in query:
-   tmp_q = []
-   
-   for w in q:
-       
-       wid = wdict[w]
-       tmp_q.append(w2v_dict[wid])
-   
-   while len(tmp_q) < QTIME_STEP:
-       tmp_q.append(w2v_dict[0])
-    
-   tmp_q = np.vstack(tmp_q)
-       
-   encode_query.append(tmp_q)
-   
-
-
-for idx in range(2656, len(dir_list)):
+for idx in range(len(dir_list)):
     
     
     print("Process:{}/{}".format(idx, len(dir_list)))
     dir_path = os.path.join(src_path, dir_list[idx])
-    if not os.path.isdir(dir_path): continue 
+    if not os.path.isdir(dir_path): continue
+    
     file_list = os.listdir(dir_path)
     
     contents = []
@@ -123,7 +102,6 @@ for idx in range(2656, len(dir_list)):
     for res_n in range(TIME_STEP - len(res_words)):
            
          tmp_res.append(w2v_dict[0])
-         
     tmp_res = np.vstack(tmp_res)
     encode_word.append(tmp_res)
          
@@ -132,16 +110,17 @@ for idx in range(2656, len(dir_list)):
     encode_label = []
     label_type = ["OS", "category", "model"]
     
+    lblank_pad = np.zeros(LABEL_SIZE, np.float32)
+    
     for ltype in label_type:
-        
-        lblank_pad = np.zeros(LABEL_SIZE, np.float32)
         
         if label[ltype][0] in ldict: 
             lblank_pad[ldict[label[ltype][0]]] = 1
-            encode_label.append(lblank_pad)
+            
         else:
             lblank_pad[ldict["UNKL"]] = 1
-            encode_label.append(lblank_pad)
+            
+    encode_label.append(lblank_pad)
             
      #------------Pack dql pair------------------
      
@@ -155,15 +134,14 @@ for idx in range(2656, len(dir_list)):
             example = tf.train.Example(features=tf.train.Features(feature={
                     
                     'content':_bytes_feature(encode_word[i].tostring()),
-                    'label':_bytes_feature(encode_label[j].tostring()),
-                    'question':_bytes_feature(encode_query[j].tostring())
+                    'label':_bytes_feature(encode_label[j].tostring())
                     
                     }))     
             writer.write(example.SerializeToString())
             
     if idx%15 == 0 and idx != 0:   
         writer.close()   
-        tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/tfrecord_test'
+        
         fidx = len(os.listdir(tf_record_path))
         fpath = os.path.join(tf_record_path, 'dql_pair_ts500_'+str(fidx)+ '.tfrecords')
         writer = tf.python_io.TFRecordWriter(fpath)

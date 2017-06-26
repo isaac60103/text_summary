@@ -278,133 +278,119 @@ def build_dataset(words, n_words):
   data = list(filter(lambda a: a != 0, data))
   return data, count, dictionary, reversed_dictionary       
                            
-dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset'
-process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2'
+dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset_summary/raw'
+process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset_summary/pickle'
 
 #dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/'
 #process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/summary_processed'
 wdict_path = os.path.join(process_root, 'wdict.pickle')
 ldict_path = os.path.join(process_root, 'ldict.pickle')
-
-
-final_ldict_path = os.path.join(process_root, 'final_ldict.pickle')
-final_wdict_path = os.path.join(process_root, 'final_wdict20k.pickle')
-final_rwdict_path = os.path.join(process_root, 'final_rwdict20k.pickle')
+#
+#
+#final_ldict_path = os.path.join(process_root, 'final_ldict.pickle')
+#final_wdict_path = os.path.join(process_root, 'final_wdict20k.pickle')
+#final_rwdict_path = os.path.join(process_root, 'final_rwdict20k.pickle')
 dl_pair_path = os.path.join(process_root, 'dl_path_pair.pickle')
 
 #dataset_path_list = [os.path.join(dataset_root, 'tier1'), os.path.join(dataset_root, 'tier2')]  
-dataset_path_list = [os.path.join(dataset_root, 'summary_data')]    
-path_dict = create_data_label_path(dataset_path_list, dl_pair_path)           
+#dataset_path_list = [os.path.join(dataset_root, 'summary_data')]    
+path_dict = create_data_label_path([dataset_root], dl_pair_path)           
+process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path)
 
 
 
-#dataset_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/rawdata/'
-#process_root = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/process'
-#wdict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/process/wdict.pickle'
-#ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/process/ldict.pickle'
-
-#dataset_root = '/home/dashmoment/dataset/toy_test'
-#process_root = '/dataset/ts_case_process'
-#wdict_path = '/dataset/ts_case_process/wdict.pickle'
-#ldict_path = '/dataset/ts_case_process/ldict.pickle'
-#path_dict = create_data_label_path([dataset_root])    
-
-#process_data_to_pickle(process_root, path_dict, wdict_path, ldict_path)
-
-
-
-def getChinese(context):
-   # context = context.decode("utf-8") # convert context from str to unicode
-    filtrate = re.compile(u'[^\u4E00-\u9FA5]') # non-Chinese unicode range
-    context = filtrate.sub(r'', context) # remove all non-Chinese letters
-    #context = context.encode("utf-8") # convert unicode back to str
-    return context
-
-
-
-
-def create_wdict_ldict(Nword, wdict_path, ldict_path, final_wdict_path, final_ldict_path):
-    
-    qwords = ["what", "is", " model",  "OS", "category"]
-    
-    wdict = statics.loadfrompickle(wdict_path)
-    ldict = statics.loadfrompickle(ldict_path)
-    sorted_wdict = sorted(wdict.items(), key=operator.itemgetter(1))
-    
-    r_wdict = {}
-    pure_dict = {}
-    
-    
-    label_type = ['OS', 'category', 'model']
-    
-    r_ldict = {}
-    r_ldict[0] = 'UNKL'
-    pure_ldict = {}
-    pure_ldict['UNKL'] = 0
-    
-    count = 1
-    for lt in label_type:
-        
-        
-         for l in ldict[lt]:
-             
-             if len(l) > 1  and l not in pure_ldict:
-                 r_ldict[count] = l
-                 pure_ldict[l] = len(pure_ldict)
-                 count = count + 1
-                 
-             elif len(l) > 1:
-                 
-            
-                 l = lt+l
-                 r_ldict[count] = l    
-                 pure_ldict[l] = len(pure_ldict)
-                 count = count + 1
-                 print(l)
-                 
-             
-            
-    
-    
-    r_wdict[0] = 'UNK'
-    pure_dict['UNK'] = 0
-    
-    idx = 1
-    count = 1
-    while idx < Nword + 1:
-        
-#        print("Create_dict:{}/{}".format(count, len(sorted_wdict)))
-        
-       
-        
-        if len(getChinese(sorted_wdict[-count][0])) == 0: 
-            r_wdict[idx] = sorted_wdict[-count][0]
-            pure_dict[r_wdict[idx]] = idx
-            idx = idx + 1
-        
-        count = count + 1
-    
-    
-    for i in range(1,len(r_ldict)):
-        
-        if r_ldict[i] not in pure_dict:
-            pure_dict[r_ldict[i]] = len(r_wdict)
-            r_wdict[len(r_wdict)] = r_ldict[i]
-        
-    for i in range(len(qwords)):
-        
-        if qwords[i] not in pure_dict:
-            pure_dict[qwords[i]] = len(r_wdict)
-            r_wdict[len(r_wdict)] = qwords[i]
-
-    statics.savetopickle(final_wdict_path, pure_dict)  
-    statics.savetopickle(final_ldict_path, pure_ldict) 
-    statics.savetopickle(final_rwdict_path, r_wdict)  
-          
-    return pure_dict, pure_ldict, r_wdict
-
-Nword = 20000
-pure_dict, pure_ldict, r_wdict = create_wdict_ldict(Nword,  wdict_path, ldict_path,  final_wdict_path, final_ldict_path)
+#def getChinese(context):
+#   # context = context.decode("utf-8") # convert context from str to unicode
+#    filtrate = re.compile(u'[^\u4E00-\u9FA5]') # non-Chinese unicode range
+#    context = filtrate.sub(r'', context) # remove all non-Chinese letters
+#    #context = context.encode("utf-8") # convert unicode back to str
+#    return context
+#
+#
+#
+#
+#def create_wdict_ldict(Nword, wdict_path, ldict_path, final_wdict_path, final_ldict_path):
+#    
+#    qwords = ["what", "is", " model",  "OS", "category"]
+#    
+#    wdict = statics.loadfrompickle(wdict_path)
+#    ldict = statics.loadfrompickle(ldict_path)
+#    sorted_wdict = sorted(wdict.items(), key=operator.itemgetter(1))
+#    
+#    r_wdict = {}
+#    pure_dict = {}
+#    
+#    
+#    label_type = ['OS', 'category', 'model']
+#    
+#    r_ldict = {}
+#    r_ldict[0] = 'UNKL'
+#    pure_ldict = {}
+#    pure_ldict['UNKL'] = 0
+#    
+#    count = 1
+#    for lt in label_type:
+#        
+#        
+#         for l in ldict[lt]:
+#             
+#             if len(l) > 1  and l not in pure_ldict:
+#                 r_ldict[count] = l
+#                 pure_ldict[l] = len(pure_ldict)
+#                 count = count + 1
+#                 
+#             elif len(l) > 1:
+#                 
+#            
+#                 l = lt+l
+#                 r_ldict[count] = l    
+#                 pure_ldict[l] = len(pure_ldict)
+#                 count = count + 1
+#                 print(l)
+#                 
+#             
+#            
+#    
+#    
+#    r_wdict[0] = 'UNK'
+#    pure_dict['UNK'] = 0
+#    
+#    idx = 1
+#    count = 1
+#    while idx < Nword + 1:
+#        
+##        print("Create_dict:{}/{}".format(count, len(sorted_wdict)))
+#        
+#       
+#        
+#        if len(getChinese(sorted_wdict[-count][0])) == 0: 
+#            r_wdict[idx] = sorted_wdict[-count][0]
+#            pure_dict[r_wdict[idx]] = idx
+#            idx = idx + 1
+#        
+#        count = count + 1
+#    
+#    
+#    for i in range(1,len(r_ldict)):
+#        
+#        if r_ldict[i] not in pure_dict:
+#            pure_dict[r_ldict[i]] = len(r_wdict)
+#            r_wdict[len(r_wdict)] = r_ldict[i]
+#        
+#    for i in range(len(qwords)):
+#        
+#        if qwords[i] not in pure_dict:
+#            pure_dict[qwords[i]] = len(r_wdict)
+#            r_wdict[len(r_wdict)] = qwords[i]
+#
+#    statics.savetopickle(final_wdict_path, pure_dict)  
+#    statics.savetopickle(final_ldict_path, pure_ldict) 
+#    statics.savetopickle(final_rwdict_path, r_wdict)  
+#          
+#    return pure_dict, pure_ldict, r_wdict
+#
+#Nword = 20000
+#pure_dict, pure_ldict, r_wdict = create_wdict_ldict(Nword,  wdict_path, ldict_path,  final_wdict_path, final_ldict_path)
 
 
 
