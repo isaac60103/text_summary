@@ -17,6 +17,8 @@ Category - 0.2748
 
 Model - 0.0211
 
+Total - 0.2683
+
 # text_summary
 
 
