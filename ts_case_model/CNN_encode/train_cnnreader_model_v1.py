@@ -153,7 +153,7 @@ checkpoint_filename = os.path.join(checkpoint_dir, 'cnn_reader_v1.ckpt')
 logfile = os.path.join(model_path, 'log')
 
 
-iteration = 3200
+iteration = 28108
 continue_training = 1
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
