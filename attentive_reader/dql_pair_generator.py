@@ -18,11 +18,10 @@ def loadfrompickle(filepath):
     return obj
 
 
-src_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2'
-
-final_wdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict20k.pickle'
+src_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/train'
+final_wdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict100k.pickle'
 final_ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_ldict.pickle'
-w2v_dict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/w2v_dict.pickle'
+w2v_dict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/w2v_dict100k.pickle'
 wdict = loadfrompickle(final_wdict_path)
 ldict = loadfrompickle(final_ldict_path)
 w2v_dict = loadfrompickle(w2v_dict_path)
@@ -35,12 +34,10 @@ EMBEDDING_SIZE = len(w2v_dict[0])
 LABEL_SIZE = len(ldict)
 
 
-tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/tfrecord_test'
-fidx = len(os.listdir(tf_record_path))
+tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/attentive_reader'
+fidx = 483
 fpath = os.path.join(tf_record_path, 'dql_pair_ts500_'+str(fidx)+ '.tfrecords')
 writer = tf.python_io.TFRecordWriter(fpath)
-
-
 
 #--------------------Encode query----------------
 encode_query = []
@@ -63,7 +60,7 @@ for q in query:
    
 
 
-for idx in range(2656, len(dir_list)):
+for idx in range(15456, len(dir_list)):
     
     
     print("Process:{}/{}".format(idx, len(dir_list)))
@@ -161,10 +158,9 @@ for idx in range(2656, len(dir_list)):
                     }))     
             writer.write(example.SerializeToString())
             
-    if idx%15 == 0 and idx != 0:   
+    if idx%32 == 0 and idx != 0:   
         writer.close()   
-        tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/tfrecord_test'
-        fidx = len(os.listdir(tf_record_path))
+        fidx = fidx = idx//32
         fpath = os.path.join(tf_record_path, 'dql_pair_ts500_'+str(fidx)+ '.tfrecords')
         writer = tf.python_io.TFRecordWriter(fpath)
     

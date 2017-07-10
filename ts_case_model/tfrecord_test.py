@@ -2,41 +2,44 @@ import tensorflow as tf
 import os
 
 
+def extract_test_data(filename):
+    
+    example = tf.train.Example()
+    testdata =[]
+    for record in tf.python_io.tf_record_iterator(filename):
+        example.ParseFromString(record)   
+        f = example.features.feature
+        content = f['content'].bytes_list.value[0]
+        content = tf.decode_raw(content, tf.float32)
+        content = tf.reshape(content,[500,1024])
+        testdata.append(content)
+        
+    return testdata
 
-def read_and_decode(filename_queue):
+
+def extract_test_label(filename):
     
-    reader = tf.TFRecordReader()#
-    _, serialized_example = reader.read(filename_queue)#
-    features = tf.parse_single_example(
-      serialized_example,
-      # Defaults are not specified since both keys are required.
-      features={
-        'content': tf.FixedLenFeature([], tf.int64),
-        'label': tf.FixedLenFeature([], tf.string),
-        })
+    example = tf.train.Example()
+
+    for record in tf.python_io.tf_record_iterator(filename):
+        example.ParseFromString(record)   
+        f = example.features.feature
+        label = f['label'].bytes_list.value[0]
+        label = tf.decode_raw(label, tf.float32)
+       
+        
+    return label
+
+
     
-    content = tf.cast(features['content'], tf.int64)
-    label = tf.decode_raw(features['label'], tf.float32)
-#    question = tf.decode_raw(features['question'], tf.float32)
-    
-    label = tf.reshape(label, [1946])
-#    question = tf.reshape(question, [10,21523])
-    
-    
-    tcontent, tlabel = tf.train.shuffle_batch([content, label],
-                                                      batch_size=32,
-                                                     capacity=600,
-                                                     num_threads=3,
-                                                     min_after_dequeue=0)
-    
-    
-    return tcontent, tlabel
-   
-    
-tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/taskw2v_dlpairs'
-tf_record_list = [os.path.join(tf_record_path, f)  for f in os.listdir(tf_record_path)]
-filename_queue = tf.train.string_input_producer(tf_record_list, num_epochs=10)   
-tcontent, tlabel = read_and_decode(filename_queue)
+data_tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/test/data'
+test_tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/test/label'
+test_file = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/toy_test/test/data/5000O000017gOvv.tfrecords'
+
+dtf_record_list = [os.path.join(data_tf_record_path, f)  for f in os.listdir(data_tf_record_path)]
+ltf_record_list = [os.path.join(test_tf_record_path, f)  for f in os.listdir(test_tf_record_path)]
+
+
 
 
 init_op = tf.group(tf.global_variables_initializer(),
@@ -47,19 +50,34 @@ with tf.Session() as sess:
     
     sess.run(init_op)
     
-    coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(sess=sess, coord=coord)  
-    
-    try:
-        while not coord.should_stop():
-#            c = sess.run(tquestion)
-            c,t = sess.run([ tcontent, tlabel])
-            print("random_batch")
-    except tf.errors.OutOfRangeError:
-        print('Done training -- epoch limit reached')
-    finally:
-        coord.request_stop()
-
-coord.request_stop()
-coord.join(threads)
+    for fid in range(len(dtf_record_list)):
+        
+        print(dtf_record_list[fid])
+        
+        
+        testdata = extract_test_data(dtf_record_list[fid])
+        label = extract_test_label(ltf_record_list[fid])
+       
+        s = sess.run(testdata)
+        l = sess.run(label)
+      
+   
+#    coord = tf.train.Coordinator()
+#    threads = tf.train.start_queue_runners(sess=sess, coord=coord)  
+#    
+#    try:
+#        while not coord.should_stop():
+#            
+#            print(len(s))
+#            c,t, f1, f2 = sess.run([dfile,lfile, fname, lfname])
+#            print(f1)
+#            print(f2)
+##            print("random_batch")
+#    except tf.errors.OutOfRangeError:
+#        print('Done training -- epoch limit reached')
+#    finally:
+#        coord.request_stop()
+#
+#coord.request_stop()
+#coord.join(threads)
     

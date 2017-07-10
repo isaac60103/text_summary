@@ -9,14 +9,15 @@ import collections
 import random
 
 #import data_utility.dataparser as parser
-import word2vec_utility as w2v
-import statics
+import sys
+sys.path.append('../')
+import common.word2vec_utility as w2v
+import common.statics as statics
 
 
 datapath = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2'
-w2vfile = '/home/ubuntu/workspace/text_summary_data/w2v.pickle'
 word_pool_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/words_pool.pickle'
-final_wdict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict20k.pickle'
+final_wdict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict100k.pickle'
 
 word_pool = statics.loadfrompickle(word_pool_path)
 wdict = statics.loadfrompickle(final_wdict_path)
@@ -124,14 +125,14 @@ with graph.as_default():
   merged_summary = tf.summary.merge_all()
 
 
-continue_training = 1
-init_iter = 3029000
-N_iter = 3029001
+continue_training = 0
+init_iter = 0
+N_iter = 3000000
 
-checkpoint_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/model'
-model_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/model/w2v.ckpt"
-log_dir = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/log"
-encode_dict = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/w2v_dict.pickle'
+checkpoint_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/model/100k'
+model_file = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/model/100k/w2v.ckpt"
+log_dir = "/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/log/100k"
+encode_dict = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/w2vec/w2v_dict100k.pickle'
 
 
 config = tf.ConfigProto()
@@ -166,7 +167,7 @@ with tf.Session(graph=graph, config = config) as session:
      feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
      session.run(optimizer, feed_dict=feed_dict)
          
-     if iteration % 1000 == 0:
+     if iteration % 5000 == 0:
            
              saver.save(session, model_file, global_step=iteration)
              loss_val,loss_sum = session.run([loss, merged_summary], feed_dict=feed_dict)
@@ -181,7 +182,7 @@ with tf.Session(graph=graph, config = config) as session:
   with open(encode_dict, 'wb') as handle:
     pickle.dump(final_embeddings, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-final_rwdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_rwdict20k.pickle'
+final_rwdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_rwdict100k.pickle'
 d_rdict = statics.loadfrompickle(final_rwdict_path)
 
 try:

@@ -54,9 +54,8 @@ checkpoint_dir = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/ts_case_pro
 checkpoint_filename = os.path.join(checkpoint_dir, 'attr_vanilla_model.ckpt')
 logfile = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/ts_case_project/model/attentive_reader_v2/relu/log'
 
-final_wdict_path ='/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_wdict20k.pickle'
+
 final_ldict_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/processed_v2/final_ldict.pickle'
-wdict = loadfrompickle(final_wdict_path)
 ldict = loadfrompickle(final_ldict_path)
 
 data_config = {}
@@ -76,14 +75,14 @@ model_config['n_entities'] = len(ldict)
 
 tf_record_path = '/media/ubuntu/65db2e03-ffde-4f3d-8f33-55d73836211a/dataset/ts_cases_dataset/tfrecord_test/'
 tf_record_list = [os.path.join(tf_record_path, f)  for f in os.listdir(tf_record_path)]
-train_portion = int(0.9*len(tf_record_list))
+train_portion = int(0.8*len(tf_record_list))
 train_list = tf_record_list[:train_portion]
 test_list = tf_record_list[train_portion:]
 #test_list = tf_record_list[train_portion:]
 
 
-train_filename_queue = tf.train.string_input_producer(train_list, num_epochs=None)   
-test_filename_queue = tf.train.string_input_producer(test_list, num_epochs=None)   
+train_filename_queue = tf.train.string_input_producer(train_list, num_epochs=175)   
+test_filename_queue = tf.train.string_input_producer(test_list, num_epochs=175)   
 
 tcontent, tlabel, tquestion = read_and_decode(train_filename_queue, model_config['batch_size'])
 testcontent, testlabel, testquestion = read_and_decode(test_filename_queue, model_config['batch_size'])
@@ -169,19 +168,16 @@ tf.summary.scalar("Test_Cross_Entropy",loss, collections=['test'])
 merged_summary_train = tf.summary.merge_all('train')
 merged_summary_test = tf.summary.merge_all('test')
 
-
-
-
 init_op = tf.group(tf.global_variables_initializer(),
                    tf.local_variables_initializer())
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
-iteration = 0
-continue_training = 0
+iteration = 117500
+continue_training = 1
 
 #with tf.Session(config = config) as sess:
-with tf.Session() as sess:
+with tf.Session(config = config) as sess:
     
     summary_writer = tf.summary.FileWriter(logfile, sess.graph) 
     saver = tf.train.Saver() 
