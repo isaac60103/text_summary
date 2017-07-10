@@ -1,3 +1,24 @@
+# Performance Evaluation
+## CNN Reader - Total
+
+### Configure
+
+w2v dict = 100k words
+
+training set 0.8
+
+test set 0.2
+
+### Accuracy:
+
+OS - 0.509
+
+Category - 0.2748 
+
+Model - 0.0211
+
+Total - 0.2683
+
 # text_summary
 
 
